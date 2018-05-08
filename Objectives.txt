@@ -1,0 +1,26 @@
+Following Schut chapter 6 framework:
+
+Objectives:
+
+ - We aim to build and train a chatbot to be able to be on par (>50% victory) with existing bots on the Halite 2 game
+ - We will 'confirm' the usability of GF for this task. We will 'optimise' its performance through the 'discovery' of a
+   Delegate MAS framework
+ - We will deliver the bot
+
+TODO rewrite these as 2-3 objectives that have 0/1 answer
+
+Questions:
+
+How can GF allow multi-scale coordination in a certain, adversarial environment?
+How delegate MAS and ants processes can organise and process environment information to allow complex emerging GF
+coordination?
+
+
+Hypotheses:
+
+GF encompass obstacle avoidance in navigation (small scale)
+GF allows complex strategy to emerge in an adversarial environment.
+Ants processes augment time and objective efficiency in a GF framework.
+
+TODO find less obviuous hypothesis? Find less "true" prone hypothesis
+

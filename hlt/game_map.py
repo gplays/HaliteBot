@@ -1,4 +1,5 @@
 from . import collision, entity
+from .constants import ALLY, FOE, ALLY_PLANET, FOE_PLANET
 
 
 class Map:
@@ -59,6 +60,17 @@ class Map:
         """
         return list(self._planets.values())
 
+    def get_nearest_planet(self, entity):
+        """
+
+        :param entity: The source entity to find distances from
+        :type entity: Entity
+        :return: Nearest Planet
+        :rtype: Planet
+        """
+        return max(self.all_planets(),
+                   key=lambda p: (p.x - entity.x) ** 2 + (p.y - entity.y) ** 2)
+
     def nearby_entities_by_distance(self, entity):
         """
         :param entity: The source entity to find distances from
@@ -69,7 +81,8 @@ class Map:
         for foreign_entity in self._all_ships() + self.all_planets():
             if entity == foreign_entity:
                 continue
-            result.setdefault(entity.calculate_distance_between(foreign_entity), []).append(foreign_entity)
+            result.setdefault(entity.calculate_distance_between(foreign_entity),
+                              []).append(foreign_entity)
         return result
 
     def _link(self):
@@ -93,7 +106,10 @@ class Map:
         self._players, tokens = Player._parse(tokens)
         self._planets, tokens = entity.Planet._parse(tokens)
 
-        assert(len(tokens) == 0)  # There should be no remaining tokens at this point
+        assert (
+            len(
+                tokens) == 0)  # There should be no remaining tokens at this
+        # point
         self._link()
 
     def _all_ships(self):
@@ -108,9 +124,41 @@ class Map:
             all_ships.extend(player.all_ships())
         return all_ships
 
+    @property
+    def all_entities_by_type(self):
+        """
+        Helper function to extract all entities at once
+
+        :return: List of entities
+        :rtype: List[(int, Entity)]
+        """
+        me = self.get_me()
+        all_entities = {0: [], 1: [], 2: [], 3: [], 4: [], 5: []}
+        for ship in self._all_ships():
+            entity_type = ALLY if ship.owner == me else FOE
+            all_entities[entity_type].append(ship)
+        for planet in self.all_planets():
+            entity_type = FOE_PLANET if planet.owner != me else ALLY_PLANET
+            all_entities[entity_type].append(planet)
+        return all_entities
+
+    def compute_threat_docking(self, planet):
+        """
+        Compute a threat level for the vicinity of a planet
+        Helps to decide wether or not to dock/undock
+
+        :param planet: The reference for the Threat assessment
+        :type planet: Planet
+        :return: Threat level
+        :rtype: int
+        """
+        # TODO
+        return 0
+
     def _intersects_entity(self, target):
         """
-        Check if the specified entity (x, y, r) intersects any planets. Entity is assumed to not be a planet.
+        Check if the specified entity (x, y, r) intersects any planets.
+        Entity is assumed to not be a planet.
 
         :param entity.Entity target: The entity to check intersections with.
         :return: The colliding entity if so, else None.
@@ -126,7 +174,8 @@ class Map:
 
     def obstacles_between(self, ship, target, ignore=()):
         """
-        Check whether there is a straight-line path to the given point, without planetary obstacles in between.
+        Check whether there is a straight-line path to the given point,
+        without planetary obstacles in between.
 
         :param entity.Ship ship: Source entity
         :param entity.Entity target: Target entity
@@ -135,12 +184,16 @@ class Map:
         :rtype: list[entity.Entity]
         """
         obstacles = []
-        entities = ([] if issubclass(entity.Planet, ignore) else self.all_planets()) \
-            + ([] if issubclass(entity.Ship, ignore) else self._all_ships())
+        entities = ([] if issubclass(entity.Planet,
+                                     ignore) else self.all_planets()) \
+                   + (
+                       [] if issubclass(entity.Ship,
+                                        ignore) else self._all_ships())
         for foreign_entity in entities:
             if foreign_entity == ship or foreign_entity == target:
                 continue
-            if collision.intersect_segment_circle(ship, target, foreign_entity, fudge=ship.radius + 0.1):
+            if collision.intersect_segment_circle(ship, target, foreign_entity,
+                                                  fudge=ship.radius + 0.1):
                 obstacles.append(foreign_entity)
         return obstacles
 
@@ -149,6 +202,7 @@ class Player:
     """
     :ivar id: The player's unique id
     """
+
     def __init__(self, player_id, ships={}):
         """
         :param player_id: User's id
@@ -177,7 +231,8 @@ class Player:
         """
         Parse one user given an input string from the Halite engine.
 
-        :param list[str] tokens: The input string as a list of str from the Halite engine.
+        :param list[str] tokens: The input string as a list of str from the
+        Halite engine.
         :return: The parsed player id, player object, and remaining tokens
         :rtype: (int, Player, list[str])
         """
@@ -192,8 +247,10 @@ class Player:
         """
         Parse an entire user input string from the Halite engine for all users.
 
-        :param list[str] tokens: The input string as a list of str from the Halite engine.
-        :return: The parsed players in the form of player dict, and remaining tokens
+        :param list[str] tokens: The input string as a list of str from the
+        Halite engine.
+        :return: The parsed players in the form of player dict, and remaining
+        tokens
         :rtype: (dict, list[str])
         """
         num_players, *remainder = tokens

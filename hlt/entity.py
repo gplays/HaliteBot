@@ -1,14 +1,18 @@
-import logging
 import abc
 import math
 from enum import Enum
+
 from . import constants
+from .constants import ALLY, FOE, ALLY_PLANET, FOE_PLANET
+from .. import learnable_constants as const
 
 
 class Entity:
     """
-    Then entity abstract base-class represents all game entities possible. As a base all entities possess
-    a position, radius, health, an owner and an id. Note that ease of interoperability, Position inherits from
+    Then entity abstract base-class represents all game entities possible. As
+    a base all entities possess
+    a position, radius, health, an owner and an id. Note that ease of
+    interoperability, Position inherits from
     Entity.
 
     :ivar id: The entity ID
@@ -16,7 +20,8 @@ class Entity:
     :ivar y: The entity y-coordinate.
     :ivar radius: The radius of the entity (may be 0)
     :ivar health: The entity's health.
-    :ivar owner: The player ID of the owner, if any. If None, Entity is not owned.
+    :ivar owner: The player ID of the owner, if any. If None, Entity is not
+    owned.
     """
     __metaclass__ = abc.ABCMeta
 
@@ -27,8 +32,12 @@ class Entity:
         self.health = health
         self.owner = player
         self.id = entity_id
-    def isPlanet(self) : return False
-    def isShip(self)   : return False
+
+    @property
+    def isPlanet(self): return False
+
+    @const.property
+    def isShip(self): return False
 
     def calculate_distance_between(self, target):
         """
@@ -48,15 +57,21 @@ class Entity:
         :return: Angle between entities in degrees
         :rtype: float
         """
-        return math.degrees(math.atan2(target.y - self.y, target.x - self.x)) % 360
+        return math.degrees(
+            math.atan2(target.y - self.y, target.x - self.x)) % 360
+
+    def calculate_angle_between_rad(self, target):
+        return math.atan2(target.y - self.y, target.x - self.x)
 
     def closest_point_to(self, target, min_distance=3):
         """
-        Find the closest point to the given ship near the given target, outside its given radius,
+        Find the closest point to the given ship near the given target,
+        outside its given radius,
         with an added fudge of min_distance.
 
         :param Entity target: The target to compare against
-        :param int min_distance: Minimum distance specified from the object's outer radius
+        :param int min_distance: Minimum distance specified from the object's
+        outer radius
         :return: The closest point's coordinates
         :rtype: Position
         """
@@ -69,10 +84,10 @@ class Entity:
 
         radius = target.radius + min_distance
         delta_x = target.x - self.x
-        delta_y = target.y-self.y
+        delta_y = target.y - self.y
         dist = self.calculate_distance_between(target)
-        x = self.x + (1-radius/dist) * delta_x
-        y = self.y + (1-radius/dist) * delta_y
+        x = self.x + (1 - radius / dist) * delta_x
+        y = self.y + (1 - radius / dist) * delta_y
 
         return Position(x, y)
 
@@ -81,8 +96,17 @@ class Entity:
         pass
 
     def __str__(self):
-        return "Entity {} (id: {}) at position: (x = {}, y = {}), with radius = {}"\
-            .format(self.__class__.__name__, self.id, self.x, self.y, self.radius)
+        return "Entity {} (id: {}) at position: (x = {}, y = {}), with radius " \
+               "" \
+               "" \
+               "" \
+               "" \
+               "" \
+               "" \
+               "" \
+               "= {}" \
+            .format(self.__class__.__name__, self.id, self.x, self.y,
+                    self.radius)
 
     def __repr__(self):
         return self.__str__()
@@ -97,10 +121,13 @@ class Planet(Entity):
     :ivar y: The planet y-coordinate.
     :ivar radius: The planet radius.
     :ivar num_docking_spots: The max number of ships that can be docked.
-    :ivar current_production: How much production the planet has generated at the moment. Once it reaches the threshold, a ship will spawn and this will be reset.
+    :ivar current_production: How much production the planet has generated at
+    the moment. Once it reaches the threshold, a ship will spawn and this
+    will be reset.
     :ivar remaining_resources: The remaining production capacity of the planet.
     :ivar health: The planet's health.
-    :ivar owner: The Player object of the owner, if any. Else None if Planet is not owned.
+    :ivar owner: The Player object of the owner, if any. Else None if Planet
+    is not owned.
 
     """
 
@@ -118,7 +145,9 @@ class Planet(Entity):
         self._docked_ship_ids = docked_ships
         self._docked_ships = {}
 
-    def isPlanet(self) : return True
+    @property
+    def isPlanet(self):
+        return True
 
     def get_docked_ship(self, ship_id):
         """
@@ -130,6 +159,7 @@ class Planet(Entity):
         """
         return self._docked_ships.get(ship_id)
 
+    @property
     def all_docked_ships(self):
         """
         The list of all ships docked into the planet
@@ -139,6 +169,7 @@ class Planet(Entity):
         """
         return list(self._docked_ships.values())
 
+    @property
     def is_owned(self):
         """
         Determines if the planet has an owner.
@@ -147,9 +178,11 @@ class Planet(Entity):
         """
         return self.owner is not None
 
+    @property
     def is_full(self):
         """
-        Determines if the planet has been fully occupied (all possible ships are docked)
+        Determines if the planet has been fully occupied (all possible ships
+        are docked)
 
         :return: True if full, False otherwise.
         :rtype: bool
@@ -158,10 +191,13 @@ class Planet(Entity):
 
     def _link(self, players, planets):
         """
-        This function serves to take the id values set in the parse function and use it to populate the planet
-        owner and docked_ships params with the actual objects representing each, rather than IDs
+        This function serves to take the id values set in the parse function
+        and use it to populate the planet
+        owner and docked_ships params with the actual objects representing
+        each, rather than IDs
 
-        :param dict[int, gane_map.Player] players: A dictionary of player objects keyed by id
+        :param dict[int, gane_map.Player] players: A dictionary of player
+        objects keyed by id
         :return: nothing
         """
         if self.owner is not None:
@@ -225,9 +261,11 @@ class Ship(Entity):
     :ivar y: The ship y-coordinate.
     :ivar radius: The ship radius.
     :ivar health: The ship's remaining health.
-    :ivar DockingStatus docking_status: The docking status (UNDOCKED, DOCKED, DOCKING, UNDOCKING)
+    :ivar DockingStatus docking_status: The docking status (UNDOCKED, DOCKED,
+    DOCKING, UNDOCKING)
     :ivar planet: The ID of the planet the ship is docked to, if applicable.
-    :ivar owner: The player ID of the owner, if any. If None, Entity is not owned.
+    :ivar owner: The player ID of the owner, if any. If None, Entity is not
+    owned.
     """
 
     class DockingStatus(Enum):
@@ -245,14 +283,18 @@ class Ship(Entity):
         self.radius = constants.SHIP_RADIUS
         self.health = hp
         self.docking_status = docking_status
-        self.planet = planet if (docking_status is not Ship.DockingStatus.UNDOCKED) else None
+        self.planet = planet if (
+            docking_status is not Ship.DockingStatus.UNDOCKED) else None
         self._docking_progress = progress
         self._weapon_cooldown = cooldown
 
-    def isShip(self): return True
+    @property
+    def isShip(self):
+        return True
 
-    def isMobile(
-            self): return self.docking_status == Ship.DockingStatus.UNDOCKED
+    @property
+    def isMobile(self):
+        return self.docking_status == Ship.DockingStatus.UNDOCKED
 
     def thrust(self, magnitude, angle):
         """
@@ -287,28 +329,48 @@ class Ship(Entity):
         """
         return "u {}".format(self.id)
 
-    def navigate(self, target, game_map, speed, avoid_obstacles=True, max_corrections=90, angular_step=1,
+    def thrust_x_y(self, x, y):
+        angle = math.degrees(math.atan2(y, x)) % 360
+        magnitude = constants.MAX_SPEED * const.THRUST_RATIO
+        return self.thrust(magnitude, angle)
+
+    def navigate(self, target, game_map, speed, avoid_obstacles=True,
+                 max_corrections=90, angular_step=1,
                  ignore_ships=False, ignore_planets=False):
         """
-        Move a ship to a specific target position (Entity). It is recommended to place the position
-        itself here, else navigate will crash into the target. If avoid_obstacles is set to True (default)
-        will avoid obstacles on the way, with up to max_corrections corrections. Note that each correction accounts
-        for angular_step degrees difference, meaning that the algorithm will naively try max_correction degrees before giving
-        up (and returning None). The navigation will only consist of up to one command; call this method again
+        Move a ship to a specific target position (Entity). It is recommended
+        to place the position
+        itself here, else navigate will crash into the target. If
+        avoid_obstacles is set to True (default)
+        will avoid obstacles on the way, with up to max_corrections
+        corrections. Note that each correction accounts
+        for angular_step degrees difference, meaning that the algorithm will
+        naively try max_correction degrees before giving
+        up (and returning None). The navigation will only consist of up to
+        one command; call this method again
         in the next turn to continue navigating to the position.
 
         :param Entity target: The entity to which you will navigate
-        :param game_map.Map game_map: The map of the game, from which obstacles will be extracted
-        :param int speed: The (max) speed to navigate. If the obstacle is nearer, will adjust accordingly.
-        :param bool avoid_obstacles: Whether to avoid the obstacles in the way (simple pathfinding).
-        :param int max_corrections: The maximum number of degrees to deviate per turn while trying to pathfind. If exceeded returns None.
-        :param int angular_step: The degree difference to deviate if the original destination has obstacles
-        :param bool ignore_ships: Whether to ignore ships in calculations (this will make your movement faster, but more precarious)
-        :param bool ignore_planets: Whether to ignore planets in calculations (useful if you want to crash onto planets)
-        :return string: The command trying to be passed to the Halite engine or None if movement is not possible within max_corrections degrees.
+        :param game_map.Map game_map: The map of the game, from which
+        obstacles will be extracted
+        :param int speed: The (max) speed to navigate. If the obstacle is
+        nearer, will adjust accordingly.
+        :param bool avoid_obstacles: Whether to avoid the obstacles in the
+        way (simple pathfinding).
+        :param int max_corrections: The maximum number of degrees to deviate
+        per turn while trying to pathfind. If exceeded returns None.
+        :param int angular_step: The degree difference to deviate if the
+        original destination has obstacles
+        :param bool ignore_ships: Whether to ignore ships in calculations (
+        this will make your movement faster, but more precarious)
+        :param bool ignore_planets: Whether to ignore planets in calculations
+        (useful if you want to crash onto planets)
+        :return string: The command trying to be passed to the Halite engine
+        or None if movement is not possible within max_corrections degrees.
         :rtype: str
         """
-        # Assumes a position, not planet (as it would go to the center of the planet otherwise)
+        # Assumes a position, not planet (as it would go to the center of the
+        #  planet otherwise)
         if max_corrections <= 0:
             return None
         distance = self.calculate_distance_between(target)
@@ -318,10 +380,14 @@ class Ship(Entity):
             else Planet if (ignore_planets and not ignore_ships) \
             else Entity
         if avoid_obstacles and game_map.obstacles_between(self, target, ignore):
-            new_target_dx = math.cos(math.radians(angle + angular_step)) * distance
-            new_target_dy = math.sin(math.radians(angle + angular_step)) * distance
-            new_target = Position(self.x + new_target_dx, self.y + new_target_dy)
-            return self.navigate(new_target, game_map, speed, True, max_corrections - 1, angular_step)
+            new_target_dx = math.cos(
+                math.radians(angle + angular_step)) * distance
+            new_target_dy = math.sin(
+                math.radians(angle + angular_step)) * distance
+            new_target = Position(self.x + new_target_dx,
+                                  self.y + new_target_dy)
+            return self.navigate(new_target, game_map, speed, True,
+                                 max_corrections - 1, angular_step)
         speed = speed if (distance >= speed) else distance
         return self.thrust(speed, angle)
 
@@ -333,19 +399,44 @@ class Ship(Entity):
         :return: True if can dock, False otherwise
         :rtype: bool
         """
-        return self.calculate_distance_between(planet) <= planet.radius + constants.DOCK_RADIUS + constants.SHIP_RADIUS
+        return self.calculate_distance_between(
+            planet) <= planet.radius + constants.DOCK_RADIUS + \
+                       constants.SHIP_RADIUS
 
     def _link(self, players, planets):
         """
-        This function serves to take the id values set in the parse function and use it to populate the ship
-        owner and docked_ships params with the actual objects representing each, rather than IDs
+        This function serves to take the id values set in the parse function
+        and use it to populate the ship
+        owner and docked_ships params with the actual objects representing
+        each, rather than IDs
 
-        :param dict[int, game_map.Player] players: A dictionary of player objects keyed by id
-        :param dict[int, Planet] players: A dictionary of planet objects keyed by id
+        :param dict[int, game_map.Player] players: A dictionary of player
+        objects keyed by id
+        :param dict[int, Planet] players: A dictionary of planet objects
+        keyed by id
         :return: nothing
         """
-        self.owner = players.get(self.owner)  # All ships should have an owner. If not, this will just reset to None
+        self.owner = players.get(
+            self.owner)  # All ships should have an owner. If not, this will
+        # just reset to None
         self.planet = planets.get(self.planet)  # If not will just reset to none
+
+    def compute_grad(self, e_type, foreign_entity):
+        dist = self.calculate_distance_between(foreign_entity)
+        angle = self.calculate_angle_between_rad(foreign_entity)
+        if e_type == ALLY:
+            grad_magnitude = self._grad_ally(dist, foreign_entity)
+        elif e_type == FOE:
+            grad_magnitude = self._grad_foe(dist, foreign_entity)
+        elif e_type == ALLY_PLANET:
+            grad_magnitude = self._grad_ally_planet(dist, foreign_entity)
+        elif e_type == FOE_PLANET:
+            grad_magnitude = self._grad_foe_planet(dist, foreign_entity)
+
+        grad = grad_magnitude * math.cos(angle) + grad_magnitude * math.sin(
+            angle)
+
+        return grad
 
     @staticmethod
     def _parse_single(player_id, tokens):
@@ -353,7 +444,8 @@ class Ship(Entity):
         Parse a single ship given tokenized input from the game environment.
 
         :param int player_id: The id of the player who controls the ships
-        :param list[tokens]: The remaining tokens
+        :param list[tokens]: The re
+        maining tokens
         :return: The ship ID, ship object, and unused tokens.
         :rtype: int, Ship, list[str]
         """
@@ -386,13 +478,72 @@ class Ship(Entity):
         ships = {}
         num_ships, *remainder = tokens
         for _ in range(int(num_ships)):
-            ship_id, ships[ship_id], remainder = Ship._parse_single(player_id, remainder)
+            ship_id, ships[ship_id], remainder = Ship._parse_single(player_id,
+                                                                    remainder)
         return ships, remainder
+
+    def _grad_ally(self, dist, ally):
+        """
+        Lennard Jones like potential
+        min = exp( (-log(SWARM_STABILITY) / (K_SWARM - K_COLL_ALLY) )
+        :param dist:
+        :type dist:
+        :param ally:
+        :type ally:
+        :return:
+        :rtype:
+        """
+        # If too much collision, can introduce an offset to dist
+
+        return const.W_ALLY * (dist ** -const.K_COLL_ALLY -
+                               const.SWARM_STABILITY * dist ** -const.K_SWARM)
+
+    def _grad_foe(self, dist, foe):
+        """
+        Gaussian gradient
+        :param dist:
+        :type dist:
+        :param foe:
+        :type foe:
+        :return:
+        :rtype:
+        """
+        return const.W_FOE * const.K_FOE * dist * math.exp(-const.K_FOE *
+                                                           dist * dist)
+
+    def _grad_ally_planet(self, dist, planet):
+        """
+        Gaussian gradient
+        :param dist:
+        :type dist:
+        :param planet:
+        :type planet:
+        :return:
+        :rtype:
+        """
+
+        resources = planet.remaining_resources
+        K = const.K_RESOURCES * resources + const.K_PLANET
+        return const.W_PLANET * K * dist * math.exp(-K * dist * dist)
+
+    def _grad_foe_planet(self, dist, planet):
+        """
+        Gaussian gradient
+        :param dist:
+        :type dist:
+        :param planet:
+        :type planet:
+        :return:
+        :rtype:
+        """
+        K = const.K_DOCKED_FOE * len(planet.all_docked_ships) + const.K_PLANET
+        return const.W_PLANET * K * dist * math.exp(-K * dist * dist)
 
 
 class Position(Entity):
     """
-    A simple wrapper for a coordinate. Intended to be passed to some functions in place of a ship or planet.
+    A simple wrapper for a coordinate. Intended to be passed to some
+    functions in place of a ship or planet.
 
     :ivar id: Unused
     :ivar x: The x-coordinate.

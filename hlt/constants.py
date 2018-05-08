@@ -22,3 +22,9 @@ DOCK_TURNS = 5
 BASE_PRODUCTIVITY = 6
 #: Distance from the planets edge at which new ships are created
 SPAWN_RADIUS = 2.0
+
+ALLY = 1
+FOE = 2
+FREE_PLANET = 3
+ALLY_PLANET = 4
+FOE_PLANET = 5
