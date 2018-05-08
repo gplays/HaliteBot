@@ -3,8 +3,8 @@ import math
 from enum import Enum
 
 from . import constants
+from . import learnable_constants as const
 from .constants import ALLY, FOE, ALLY_PLANET, FOE_PLANET
-from .. import learnable_constants as const
 
 
 class Entity:
@@ -36,14 +36,14 @@ class Entity:
     @property
     def isPlanet(self): return False
 
-    @const.property
+    @property
     def isShip(self): return False
 
     def calculate_distance_between(self, target):
         """
         Calculates the distance between this object and the target.
 
-        :param Entity target: The target to get distance to.
+        :param Entity target: The target tket distance to.
         :return: distance
         :rtype: float
         """
@@ -53,7 +53,7 @@ class Entity:
         """
         Calculates the angle between this object and the target in degrees.
 
-        :param Entity target: The target to get the angle between.
+        :param Entity target: The target tket the angle between.
         :return: Angle between entities in degrees
         :rtype: float
         """
@@ -97,6 +97,10 @@ class Entity:
 
     def __str__(self):
         return "Entity {} (id: {}) at position: (x = {}, y = {}), with radius " \
+               "" \
+               "" \
+               "" \
+               "" \
                "" \
                "" \
                "" \
@@ -300,7 +304,7 @@ class Ship(Entity):
         """
         Generate a command to accelerate this ship.
 
-        :param int magnitude: The speed through which to move the ship
+        :param int magnitude: The speed thrkh which to move the ship
         :param int angle: The angle to move the ship in
         :return: The command string to be passed to the Halite engine.
         :rtype: str
@@ -399,9 +403,10 @@ class Ship(Entity):
         :return: True if can dock, False otherwise
         :rtype: bool
         """
-        return self.calculate_distance_between(
-            planet) <= planet.radius + constants.DOCK_RADIUS + \
-                       constants.SHIP_RADIUS
+        return (self.calculate_distance_between(planet) <=
+                planet.radius + constants.DOCK_RADIUS + constants.SHIP_RADIUS
+                and not planet.is_full
+                )
 
     def _link(self, players, planets):
         """
@@ -422,19 +427,14 @@ class Ship(Entity):
         self.planet = planets.get(self.planet)  # If not will just reset to none
 
     def compute_grad(self, e_type, foreign_entity):
-        dist = self.calculate_distance_between(foreign_entity)
-        angle = self.calculate_angle_between_rad(foreign_entity)
         if e_type == ALLY:
-            grad_magnitude = self._grad_ally(dist, foreign_entity)
+            grad = self._grad_ally(foreign_entity)
         elif e_type == FOE:
-            grad_magnitude = self._grad_foe(dist, foreign_entity)
+            grad = self._grad_foe(foreign_entity)
         elif e_type == ALLY_PLANET:
-            grad_magnitude = self._grad_ally_planet(dist, foreign_entity)
+            grad = self._grad_ally_planet(foreign_entity)
         elif e_type == FOE_PLANET:
-            grad_magnitude = self._grad_foe_planet(dist, foreign_entity)
-
-        grad = grad_magnitude * math.cos(angle) + grad_magnitude * math.sin(
-            angle)
+            grad = self._grad_foe_planet(foreign_entity)
 
         return grad
 
@@ -482,12 +482,10 @@ class Ship(Entity):
                                                                     remainder)
         return ships, remainder
 
-    def _grad_ally(self, dist, ally):
+    def _grad_ally(self, ally):
         """
         Lennard Jones like potential
         min = exp( (-log(SWARM_STABILITY) / (K_SWARM - K_COLL_ALLY) )
-        :param dist:
-        :type dist:
         :param ally:
         :type ally:
         :return:
@@ -495,49 +493,52 @@ class Ship(Entity):
         """
         # If too much collision, can introduce an offset to dist
 
-        return const.W_ALLY * (dist ** -const.K_COLL_ALLY -
-                               const.SWARM_STABILITY * dist ** -const.K_SWARM)
+        grad_x, grad_y = grad_gaussian(self, ally,
+                                       const.W_COLLISION,
+                                       const.K_COLLISION)
+        grad2_x, grad2_y = grad_gaussian(self, ally,
+                                         const.W_SWARM,
+                                         const.K_SWARM,
+                                         offset=const.COLLISION_OFFSET)
 
-    def _grad_foe(self, dist, foe):
+        return grad_x + grad2_x, grad_y + grad2_y
+
+    def _grad_foe(self, foe):
         """
         Gaussian gradient
-        :param dist:
-        :type dist:
         :param foe:
         :type foe:
         :return:
         :rtype:
         """
-        return const.W_FOE * const.K_FOE * dist * math.exp(-const.K_FOE *
-                                                           dist * dist)
+        return grad_gaussian(self, foe, const.W_FOE, const.K_FOE)
 
-    def _grad_ally_planet(self, dist, planet):
+    def _grad_ally_planet(self, planet):
         """
         Gaussian gradient
-        :param dist:
-        :type dist:
         :param planet:
-        :type planet:
+        :type planet: Planet
         :return:
         :rtype:
         """
 
-        resources = planet.remaining_resources
-        K = const.K_RESOURCES * resources + const.K_PLANET
-        return const.W_PLANET * K * dist * math.exp(-K * dist * dist)
+        free_spots = planet.num_docking_spots - len(planet.all_docked_ships)
 
-    def _grad_foe_planet(self, dist, planet):
+        K = math.sqrt(1+free_spots) * const.K_PLANET
+
+        return grad_gaussian(self, planet, const.W_PLANET, K)
+
+    def _grad_foe_planet(self, planet):
         """
         Gaussian gradient
-        :param dist:
-        :type dist:
         :param planet:
-        :type planet:
+        :type planet: Planet
         :return:
         :rtype:
         """
-        K = const.K_DOCKED_FOE * len(planet.all_docked_ships) + const.K_PLANET
-        return const.W_PLANET * K * dist * math.exp(-K * dist * dist)
+        K = math.sqrt(1+len(planet.all_docked_ships)) * const.K_PLANET
+
+        return grad_gaussian(self, planet, const.W_PLANET, K)
 
 
 class Position(Entity):
@@ -563,3 +564,26 @@ class Position(Entity):
 
     def _link(self, players, planets):
         raise NotImplementedError("Position should not have link attributes.")
+
+
+def grad_gaussian(ship, entity, weight, kernel_width, offset=0):
+    """
+    Compute the gradient for a gaussian kernel
+    :param ship: 
+    :type ship: 
+    :param entity: 
+    :type entity: 
+    :param weight:
+    :type weight:
+    :param kernel_width:
+    :type kernel_width:
+    :return: 
+    :rtype: 
+    """
+    kernel_mult = 1/(kernel_width**2)
+    # Offset is breaking the True Gaussian but don't change the gradient
+    d = (entity.x - ship.x) ** 2 + (entity.y - ship.y) ** 2 - offset ** 2
+    f = math.exp(-kernel_mult * d)
+    grad_x = weight * kernel_mult * f * (entity.x - ship.x)
+    grad_y = weight * kernel_mult * f * (entity.y - ship.y)
+    return grad_x, grad_y

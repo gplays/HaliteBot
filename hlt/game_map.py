@@ -68,7 +68,7 @@ class Map:
         :return: Nearest Planet
         :rtype: Planet
         """
-        return max(self.all_planets(),
+        return min(self.all_planets(),
                    key=lambda p: (p.x - entity.x) ** 2 + (p.y - entity.y) ** 2)
 
     def nearby_entities_by_distance(self, entity):
