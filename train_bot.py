@@ -15,7 +15,7 @@ from utils.scoring import get_score
 OPPONENT_COMMAND = "python3 simpleBot.py"
 STORE_PATH = ".data"
 MAP_HEIGHTS = [160, 180, 200, 256]
-CORES = cpu_count()
+CORES = cpu_count()/2
 
 
 def func(x):
