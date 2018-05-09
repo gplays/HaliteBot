@@ -94,11 +94,10 @@ if __name__ == "__main__":
     parser.add_argument("--k_planet", type=float, default=60)
     parser.add_argument("--k_swarm", type=float, default=30)
     parser.add_argument("--threat_threshold", type=float, default=1)
-    parser.add_argument("--w_collision", type=float, default=-1)
+    parser.add_argument("--w_collision", type=float, default=-2)
     parser.add_argument("--w_swarm", type=float, default=1)
     parser.add_argument("--w_foe", type=float, default=1)
     parser.add_argument("--w_planet", type=float, default=1)
     parser.add_argument("--thrust_ratio", type=float, default=0.5)
-
 
     run_game(hlt.Game("Settler"), **vars(parser.parse_args()))
