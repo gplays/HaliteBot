@@ -2,7 +2,7 @@ import json
 import math
 import os
 import random
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 from os import path
 
 import numpy as np
@@ -15,6 +15,7 @@ from utils.scoring import get_score
 OPPONENT_COMMAND = "python3 simpleBot.py"
 STORE_PATH = ".data"
 MAP_HEIGHTS = [160, 180, 200, 256]
+CORES = cpu_count()
 
 
 def func(x):
@@ -31,7 +32,7 @@ def clean_repository():
         os.remove(file)
 
 
-def async_score(args, num_games=2):
+def async_score(args, num_games=CORES):
     """
     Evaluating bot
     :param args: the values of the learnable parameters passed to the bot
