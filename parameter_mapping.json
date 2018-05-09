@@ -1,0 +1,11 @@
+{"collision_offset":1,
+"k_collision":1.5,
+"k_foe":60,
+"k_planet":60,
+"k_swarm":30,
+"threat_threshold":1,
+"w_collision":-1,
+"w_swarm":1,
+"w_foe":1,
+"w_planet":1,
+"thrust_ratio":0.5}

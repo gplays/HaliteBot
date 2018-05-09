@@ -108,6 +108,8 @@ class Entity:
                "" \
                "" \
                "" \
+               "" \
+               "" \
                "= {}" \
             .format(self.__class__.__name__, self.id, self.x, self.y,
                     self.radius)
@@ -426,15 +428,15 @@ class Ship(Entity):
         # just reset to None
         self.planet = planets.get(self.planet)  # If not will just reset to none
 
-    def compute_grad(self, e_type, foreign_entity):
+    def compute_grad(self, e_type, foreign_entity, **kwargs):
         if e_type == ALLY:
-            grad = self._grad_ally(foreign_entity)
+            grad = self._grad_ally(foreign_entity, **kwargs)
         elif e_type == FOE:
-            grad = self._grad_foe(foreign_entity)
+            grad = self._grad_foe(foreign_entity, **kwargs)
         elif e_type == ALLY_PLANET:
-            grad = self._grad_ally_planet(foreign_entity)
+            grad = self._grad_ally_planet(foreign_entity, **kwargs)
         elif e_type == FOE_PLANET:
-            grad = self._grad_foe_planet(foreign_entity)
+            grad = self._grad_foe_planet(foreign_entity, **kwargs)
 
         return grad
 
@@ -482,7 +484,7 @@ class Ship(Entity):
                                                                     remainder)
         return ships, remainder
 
-    def _grad_ally(self, ally):
+    def _grad_ally(self, ally, **kwargs):
         """
         Lennard Jones like potential
         min = exp( (-log(SWARM_STABILITY) / (K_SWARM - K_COLL_ALLY) )
@@ -494,16 +496,16 @@ class Ship(Entity):
         # If too much collision, can introduce an offset to dist
 
         grad_x, grad_y = grad_gaussian(self, ally,
-                                       const.W_COLLISION,
-                                       const.K_COLLISION)
+                                       kwargs["w_collision"],
+                                       kwargs["k_collision"])
         grad2_x, grad2_y = grad_gaussian(self, ally,
-                                         const.W_SWARM,
-                                         const.K_SWARM,
-                                         offset=const.COLLISION_OFFSET)
+                                         kwargs["w_swarm"],
+                                         kwargs["k_swarm"],
+                                         offset=kwargs["collision_offset"])
 
         return grad_x + grad2_x, grad_y + grad2_y
 
-    def _grad_foe(self, foe):
+    def _grad_foe(self, foe, **kwargs):
         """
         Gaussian gradient
         :param foe:
@@ -511,9 +513,9 @@ class Ship(Entity):
         :return:
         :rtype:
         """
-        return grad_gaussian(self, foe, const.W_FOE, const.K_FOE)
+        return grad_gaussian(self, foe, kwargs["w_foe"], kwargs["k_foe"])
 
-    def _grad_ally_planet(self, planet):
+    def _grad_ally_planet(self, planet, **kwargs):
         """
         Gaussian gradient
         :param planet:
@@ -524,11 +526,11 @@ class Ship(Entity):
 
         free_spots = planet.num_docking_spots - len(planet.all_docked_ships)
 
-        K = math.sqrt(1+free_spots) * const.K_PLANET
+        K = math.sqrt(1 + free_spots) * kwargs["k_planet"]
 
-        return grad_gaussian(self, planet, const.W_PLANET, K)
+        return grad_gaussian(self, planet, kwargs["w_planet"], K)
 
-    def _grad_foe_planet(self, planet):
+    def _grad_foe_planet(self, planet, **kwargs):
         """
         Gaussian gradient
         :param planet:
@@ -536,9 +538,9 @@ class Ship(Entity):
         :return:
         :rtype:
         """
-        K = math.sqrt(1+len(planet.all_docked_ships)) * const.K_PLANET
+        K = math.sqrt(1 + len(planet.all_docked_ships)) * kwargs["k_planet"]
 
-        return grad_gaussian(self, planet, const.W_PLANET, K)
+        return grad_gaussian(self, planet, kwargs["w_planet"], K)
 
 
 class Position(Entity):
@@ -580,7 +582,7 @@ def grad_gaussian(ship, entity, weight, kernel_width, offset=0):
     :return: 
     :rtype: 
     """
-    kernel_mult = 1/(kernel_width**2)
+    kernel_mult = 1 / (kernel_width ** 2)
     # Offset is breaking the True Gaussian but don't change the gradient
     d = (entity.x - ship.x) ** 2 + (entity.y - ship.y) ** 2 - offset ** 2
     f = math.exp(-kernel_mult * d)

@@ -1,101 +1,104 @@
 """
-Welcome to your first Halite-II bot!
-
-This bot's name is Settler. It's purpose is simple (don't expect it to win
-complex games :) ):
-1. Initialize game
-2. If a ship is not docked and there are unowned planets
-2.a. Try to Dock in the planet if close enough
-2.b If not, go towards the planet
-
 Note: Please do not place print statements here as they are used to
 communicate with the Halite engine. If you need
 to log anything use the logging module.
 """
-# Then let's import the logging module so we can print out information
+import argparse
 import logging
-
-# Let's start by importing the Halite Starter Kit so we can interface with
-# the Halite engine
 import math
 
 import hlt
 import hlt.learnable_constants as const
 from RVO import resolve_conflicts
+from hlt.entity import Position
 
-Position = hlt.entity.Position
-CONFLICT_CHECK = False
 
-# GAME START
-# Here we define the bot's name as Settler and initialize the game, including
-#  communication with the Halite engine.
-game = hlt.Game("Settler")
-# Then we print our start message to the logs
-logging.info("Starting my Settler bot!")
+def run_game(game, **kwargs):
+    conflict_check = kwargs.get("conflict_check", False)
 
-while True:
-    # TURN START
-    # Update the map for the new turn and get the latest version
-    game_map = game.update_map()
+    while True:
 
-    # Here we define the set of commands to be sent to the Halite engine at
-    # the end of the turn
-    command_queue = []
+        game_map = game.update_map()
 
-    if CONFLICT_CHECK:
-        list_moves = []
+        command_queue = []
+        immobile_ships = []
+        if conflict_check:
+            list_moves = []
 
-    for ship in game_map.get_me().all_ships():
+        for ship in game_map.get_me().all_ships():
 
-        # Skip docked ships
-        if ship.docking_status != ship.DockingStatus.UNDOCKED:
-            continue
-
-        # Check possibility of docking
-        nearest_planet = game_map.get_nearest_planet(ship)
-        if ship.can_dock(nearest_planet):
-            logging.info("DOCKING")
-            threat = game_map.compute_threat_docking(nearest_planet)
-            if True or nearest_planet.threat_level < const.THREAT_THRESHOLD:
-                command_queue.append(ship.dock(nearest_planet))
+            # Skip docked ships
+            if ship.docking_status != ship.DockingStatus.UNDOCKED:
+                immobile_ships.append(ship)
                 continue
 
-        # Compute gradient
-        grad_x, grad_y = (0, 0)
-        for e_type, list_entity in game_map.all_entities_by_type.items():
-            for entity in list_entity:
-                if entity == ship:
+            # Check possibility of docking
+            nearest_planet = game_map.get_nearest_planet(ship)
+            if ship.can_dock(nearest_planet):
+                logging.info("DOCKING")
+                threat = game_map.compute_threat_docking(nearest_planet)
+                # Overriding threat assesment for the time being
+                if True or nearest_planet.threat_level < const.THREAT_THRESHOLD:
+                    command_queue.append(ship.dock(nearest_planet))
                     continue
-                simple_grad = ship.compute_grad(e_type, entity)
-                logging.info("grad: {}".format(simple_grad))
-                logging.info("dist: {}".format(
-                    ship.calculate_distance_between(entity)))
-                grad_x += simple_grad[0]
-                grad_y += simple_grad[1]
 
-        if CONFLICT_CHECK:
-            list_moves.append((ship, (grad_x, grad_y)))
-        else:
-            speed = hlt.constants.MAX_SPEED * const.THRUST_RATIO
-            norm_grad = math.sqrt(grad_x**2+grad_y**2)
-            grad_x *= speed/norm_grad
-            grad_y *= speed/norm_grad
-            navigate_command = ship.navigate(Position(ship.x+grad_x,
-                                                      ship.y+grad_y),
-                                             game_map,
-                                             speed)
-            if navigate_command is not None:
-                command_queue.append(navigate_command)
+            # Compute gradient
+            grad_x, grad_y = (0, 0)
+            for e_type, list_entity in game_map.all_entities_by_type.items():
+                for entity in list_entity:
+                    if entity == ship:
+                        continue
+                    simple_grad = ship.compute_grad(e_type, entity, **kwargs)
+                    logging.info("grad: {}".format(simple_grad))
+                    logging.info("dist: {}".format(
+                        ship.calculate_distance_between(entity)))
+                    grad_x += simple_grad[0]
+                    grad_y += simple_grad[1]
 
-    if CONFLICT_CHECK:
-        valid_commands = resolve_conflicts(list_moves,
-                                           game_map.all_planets,
-                                           avoid_planets=True,
-                                           avoid_ships=True)
+            if conflict_check:
+                list_moves.append((ship, (grad_x, grad_y)))
+            else:
+                speed = hlt.constants.MAX_SPEED * const.THRUST_RATIO
+                norm_grad = math.sqrt(grad_x ** 2 + grad_y ** 2)
+                grad_x *= speed / norm_grad
+                grad_y *= speed / norm_grad
+                navigate_command = ship.navigate(Position(ship.x + grad_x,
+                                                          ship.y + grad_y),
+                                                 game_map,
+                                                 speed)
+                if navigate_command is not None:
+                    command_queue.append(navigate_command)
 
-    # Send our set of commands to the Halite engine for this turn
-    game.send_command_queue(command_queue)
-    # TURN END
+        if conflict_check:
+            immobile_obstacles = immobile_ships + game_map.all_planets
+            valid_commands = resolve_conflicts(list_moves,
+                                               immobile_obstacles)
+            command_queue.append(valid_commands)
+
+        # Send our set of commands to the Halite engine for this turn
+        game.send_command_queue(command_queue)
+        # TURN END
 
 
-# GAME END
+        # GAME END
+
+
+if __name__ == "__main__":
+
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--collision_offset", type=float, default=1)
+    parser.add_argument("--k_collision", type=float, default=1.5)
+    parser.add_argument("--k_foe", type=float, default=60)
+    parser.add_argument("--k_planet", type=float, default=60)
+    parser.add_argument("--k_swarm", type=float, default=30)
+    parser.add_argument("--threat_threshold", type=float, default=1)
+    parser.add_argument("--w_collision", type=float, default=-1)
+    parser.add_argument("--w_swarm", type=float, default=1)
+    parser.add_argument("--w_foe", type=float, default=1)
+    parser.add_argument("--w_planet", type=float, default=1)
+    parser.add_argument("--thrust_ratio", type=float, default=0.5)
+
+
+    run_game(hlt.Game("Settler"), **vars(parser.parse_args()))
