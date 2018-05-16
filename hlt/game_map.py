@@ -5,7 +5,7 @@ from .constants import ALLY, FOE, ALLY_PLANET, FOE_PLANET
 class Map:
     """
     Map which houses the current game information/metadata.
-    
+
     :ivar my_id: Current player id associated with the map
     :ivar width: Map width
     :ivar height: Map height
@@ -59,6 +59,11 @@ class Map:
         :rtype: list[entity.Planet]
         """
         return list(self._planets.values())
+
+    def augment_entities(self, params):
+
+        for e in self._all_ships() + self.all_planets():
+            e.augment(self.get_me(), params)
 
     def get_nearest_planet(self, entity):
         """
@@ -122,6 +127,19 @@ class Map:
         all_ships = []
         for player in self.all_players():
             all_ships.extend(player.all_ships())
+        return all_ships
+
+    def all_ennemy_ships(self):
+        """
+        Helper function to extract all ships from all players but me
+
+        :return: List of ships
+        :rtype: List[Ship]
+        """
+        all_ships = []
+        for player in self.all_players():
+            if player != self.get_me():
+                all_ships.extend(player.all_ships())
         return all_ships
 
     @property

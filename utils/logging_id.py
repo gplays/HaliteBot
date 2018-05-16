@@ -1,45 +1,121 @@
+import json
 import os
 import os.path as path
 
 STORE_PATH = ".data"
+PREV_LEVEL = {"session": "experiment",
+              "experiment": STORE_PATH,
+              STORE_PATH: None}
 
 
-def data_path(string):
-    return path.join(STORE_PATH, string + "_id")
+def log_performances(score, log_perfs, params):
+    session_path = data_path("session")
+    best_path = path.join(data_path("experiment"), "best")
+
+    if is_best_score_yet(score, best_path):
+        print("Best Score yet!")
+        write_perfs(best_path, score, log_perfs, params)
+    write_perfs(session_path, score, log_perfs, params)
+
+    update_win_rate(log_perfs[-1])
 
 
-def get_id(string):
-    id_path = data_path(string)
+def update_win_rate(win_loss):
+    experiment_path = path.join(data_path("experiment"), "win_loss")
+
+    if path.exists(experiment_path):
+        with open(experiment_path) as f:
+            win_dict = json.load(f)
+    else:
+        win_dict = {"win": 0, "loss": 0, "ratio": 0}
+    win_dict["win"] += win_loss["win"]
+    win_dict["loss"] += win_loss["loss"]
+    n_games = win_dict["win"] + win_dict["loss"]
+    win_dict["ratio"] = win_dict["win"] / n_games
+
+    with open(experiment_path, "w") as f:
+        json.dump(win_dict, f)
+
+    if n_games > 12 and win_dict["ratio"] > 0.65:
+        raise InterruptedError
+
+
+def write_perfs(my_path, score, log_perfs, params):
+    with open(path.join(my_path, "score"), "w") as f:
+        f.write(str(score))
+    with open(path.join(my_path, "stats-{:.4}.json".format(score)), "w") as f:
+        json.dump(log_perfs, f)
+
+    with open(path.join(my_path, "params-{:.4}.json".format(score)), "w") as f:
+        json.dump(params, f)
+
+
+def is_best_score_yet(score, best_path):
+    if not path.exists(best_path):
+        os.mkdir(best_path)
+        best_score = 0
+    else:
+        with open(path.join(best_path, "score")) as f:
+            best_score = float(f.read())
+
+    return best_score < score
+
+
+def data_path(level):
+    if PREV_LEVEL[level] is None:
+        return STORE_PATH
+    else:
+        root = data_path(PREV_LEVEL[level])
+        return path.join(root, level + str(get_id("", root)))
+
+
+def get_id(level, root=None):
+    if root is None:
+        root = data_path(PREV_LEVEL[level])
+    id_path = path.join(root, "last_id")
     if not path.exists(id_path):
-        reset_id(string)
+        with open(id_path, "w") as f:
+            f.write("1")
+
     with open(id_path, "r") as f:
         my_id = int(next(f))
-    return string + str(my_id)
+
+    return my_id
 
 
-def update_id(string):
-    id_path = data_path(string)
+def update_id(level):
+    root = data_path(PREV_LEVEL[level])
+    id_path = path.join(root, "last_id")
 
     if not path.exists(id_path):
-        reset_id(string)
-        my_id = 1
-    else:
-        with open(id_path, "r") as f:
-            my_id = int(next(f)) + 1
         with open(id_path, "w") as f:
-            f.write(str(my_id))
-    return string + str(my_id)
+            f.write("0")
 
-
-def reset_id(string):
-    id_path = data_path(string)
-
+    with open(id_path, "r") as f:
+        my_id = str(int(next(f)) + 1)
     with open(id_path, "w") as f:
-        f.write("0")
-    r = "0"
-    return r
+        f.write(my_id)
+
+    new_dir = path.join(root, level + my_id)
+    os.mkdir(new_dir)
+
+    return my_id
+
+
+def update_parameter_mapping():
+    best_path = path.join(data_path("experiment"), "best")
+    onlyfiles = [f for f in os.listdir(best_path) if f.startswith("params")]
+    best_params_path = max(onlyfiles)
+    with open(best_params_path) as f:
+        best_params = json.load(f)
+    with open("parameter_mapping.json") as f:
+        params = json.load(f)
+
+    params = {k: [best_params[k], v[1], v[2]] for k, v in params.items()}
+
+    with open("parameter_mapping.json", "w") as f:
+        json.dump(params, f)
 
 
 if not os.path.exists(STORE_PATH):
     os.mkdir(STORE_PATH)
-    reset_id("experiment")

@@ -3,7 +3,6 @@ import math
 from enum import Enum
 
 from . import constants
-from . import learnable_constants as const
 from .constants import ALLY, FOE, ALLY_PLANET, FOE_PLANET
 
 
@@ -32,6 +31,13 @@ class Entity:
         self.health = health
         self.owner = player
         self.id = entity_id
+        self.vel = (0, 0)
+        self.me = -1
+        self.params = {}
+
+    def augment(self, me, params):
+        self.me = me
+        self.params = params
 
     @property
     def isPlanet(self): return False
@@ -91,6 +97,14 @@ class Entity:
 
         return Position(x, y)
 
+    @property
+    def kernel(self):
+        return 0
+
+    @property
+    def factor(self):
+        return 0
+
     @abc.abstractmethod
     def _link(self, players, planets):
         pass
@@ -106,13 +120,8 @@ class Entity:
                "" \
                "" \
                "" \
-               "" \
-               "" \
-               "" \
-               "" \
-               "= {}" \
-            .format(self.__class__.__name__, self.id, self.x, self.y,
-                    self.radius)
+               "= {}".format(self.__class__.__name__, self.id, self.x, self.y,
+                             self.radius)
 
     def __repr__(self):
         return self.__str__()
@@ -150,6 +159,34 @@ class Planet(Entity):
         self.owner = owner if bool(int(owned)) else None
         self._docked_ship_ids = docked_ships
         self._docked_ships = {}
+        self.vel = Position(0, 0)
+        self.threat_level = 0
+        self.me = -1
+        self.params={}
+
+
+    @property
+    def type(self):
+        if self.owner is None or self.owner == self.me:
+            return ALLY_PLANET
+        else:
+            return FOE_PLANET
+    @property
+    def kernel(self):
+        if self.type == ALLY_PLANET:
+            free_spots = self.num_docking_spots - len(self.all_docked_ships)
+            k = math.sqrt(1 + free_spots) * self.params["k_planet"]
+        else:
+            k = math.sqrt(1 + len(self.all_docked_ships)) * self.params[
+                "k_planet"]
+        return k
+    @property
+    def factor(self):
+        if self.type == ALLY_PLANET:
+            f = self.params["w_planet"]
+        else:
+            f = self.params["w_planet"]
+        return f
 
     @property
     def isPlanet(self):
@@ -194,6 +231,14 @@ class Planet(Entity):
         :rtype: bool
         """
         return len(self._docked_ship_ids) >= self.num_docking_spots
+
+    def compute_threat(self, map):
+        """
+        Compute and update the threat level
+        :return:
+        :rtype:
+        """
+        pass
 
     def _link(self, players, planets):
         """
@@ -261,7 +306,7 @@ class Planet(Entity):
 class Ship(Entity):
     """
     A ship in the game.
-    
+
     :ivar id: The ship ID.
     :ivar x: The ship x-coordinate.
     :ivar y: The ship y-coordinate.
@@ -293,6 +338,33 @@ class Ship(Entity):
             docking_status is not Ship.DockingStatus.UNDOCKED) else None
         self._docking_progress = progress
         self._weapon_cooldown = cooldown
+        self.target = None
+        self.vel = Position(vel_x, vel_y)
+        self.me = -1
+        self.params = {}
+
+    @property
+    def type(self):
+        if self.owner == self.me:
+            return ALLY
+        else:
+            return FOE
+
+    @property
+    def kernel(self):
+        if self.type == ALLY:
+            k = self.params["k_swarm"]
+        else:
+            k = self.params["k_foe"]
+        return k
+
+    @property
+    def factor(self):
+        if self.type == ALLY:
+            f = self.params["w_swarm"]
+        else:
+            f = self.params["w_foe"]
+        return f
 
     @property
     def isShip(self):
@@ -324,6 +396,7 @@ class Ship(Entity):
         :return: The command string to be passed to the Halite engine.
         :rtype: str
         """
+        self.docking_status = self.DockingStatus.DOCKING
         return "d {} {}".format(self.id, planet.id)
 
     def undock(self):
@@ -335,9 +408,45 @@ class Ship(Entity):
         """
         return "u {}".format(self.id)
 
+    def set_target_from_grad(self, grad_x, grad_y, speed):
+        """
+        Set target toward the direction of the gradient using speed as distance
+        :param grad_x:
+        :type grad_x:
+        :param grad_y:
+        :type grad_y:
+        :param speed:
+        :type speed:
+        :return:
+        :rtype:
+        """
+        norm_grad = math.sqrt(grad_x ** 2 + grad_y ** 2)
+        self.vel = Position(grad_x * speed / norm_grad,
+                            grad_y * speed / norm_grad)
+        self.target = Position.from_entity(self) + self.vel
+
+    def thrust_to_target(self):
+        """
+        Generate thrust command towards target: full speed if not reachable
+        otherwise stop at target
+        :return: The command trying to be passed to the Halite engine.
+        :rtype: str
+        """
+        angle = int(math.degrees(math.atan2(self.target.y,
+                                            self.target.x))) % 360
+        magnitude = round((self.calculate_distance_between(self.target)))
+        return self.thrust(magnitude, angle)
+
     def thrust_x_y(self, x, y):
-        angle = math.degrees(math.atan2(y, x)) % 360
-        magnitude = constants.MAX_SPEED * const.THRUST_RATIO
+        """
+        Generate thrust command from x and y velocity
+        :return: The command trying to be passed to the Halite engine.
+        :rtype: str
+        """
+        self.vel = Position(x, y)
+        self.target = Position(self.x + x, self.y + y)
+        angle = int(math.degrees(math.atan2(y, x))) % 360
+        magnitude = round(math.sqrt(x ** 2 + y ** 2))
         return self.thrust(magnitude, angle)
 
     def navigate(self, target, game_map, speed, avoid_obstacles=True,
@@ -429,6 +538,7 @@ class Ship(Entity):
         self.planet = planets.get(self.planet)  # If not will just reset to none
 
     def compute_grad(self, e_type, foreign_entity, **kwargs):
+        grad = (0, 0)
         if e_type == ALLY:
             grad = self._grad_ally(foreign_entity, **kwargs)
         elif e_type == FOE:
@@ -566,6 +676,51 @@ class Position(Entity):
 
     def _link(self, players, planets):
         raise NotImplementedError("Position should not have link attributes.")
+
+    def __sub__(self, other):
+        return Position(other.x - self.x, other.y - self.y)
+
+    def __add__(self, other):
+        return Position(other.x + self.x, other.y + self.y)
+
+    def __mul__(self, factor):
+        """
+        Scaling vector
+        :param other:
+        :type other: int
+        :return:
+        :rtype: Position
+        """
+        return Position(self.x * factor, self.y * factor)
+
+    def normalize(self):
+        norm = 1 / self.dot(self)
+        self.x /= norm
+        self.y /= norm
+
+    @staticmethod
+    def normed(pos):
+        new_pos = Position(pos.x, pos.y)
+        new_pos.normalize()
+        return new_pos
+
+    def dot(self, other):
+        """
+        Scalar product
+        :param other:
+        :type other: Position
+        :return:
+        :rtype: float
+        """
+        return other.x * self.x + other.y * self.y
+
+    @staticmethod
+    def orth(pos):
+        return Position(-pos.y, pos.x)
+
+    @staticmethod
+    def from_entity(entity):
+        return Position(entity.x, entity.y)
 
 
 def grad_gaussian(ship, entity, weight, kernel_width, offset=0):
