@@ -11,15 +11,16 @@ from scipy import optimize as opt
 
 from utils.logging_id import (update_id, log_performances,
                               update_parameter_mapping)
+from utils.param_handling import map_parameters
 from utils.scoring import get_score
 
-OPPONENT_COMMAND = "python simpleBot.py"
+OPPONENT_COMMAND = "self"
 STORE_PATH = ".data"
 MAP_HEIGHTS = [160, 180, 200, 256]
 CORES = int(cpu_count() / 2)
 
 
-# CORES = 1
+CORES = 3
 
 def clean_repository():
     """
@@ -40,18 +41,13 @@ def async_score(args, num_games=CORES):
     :rtype:
     """
     start = time()
-    iterables = [args] * num_games
     session_id = update_id("session")
 
     command = get_play_command(args)
 
-    processes = []
     print("Session {}, playing {} games".format(session_id, num_games))
     for i in range(num_games):
-        proc = subprocess.Popen(command, shell=True)
-        processes.append(proc)
-    for p in processes:
-        p.wait()
+        subprocess.check_output(command, shell=True)
         print(".")
 
     print("All games of the session have been played")
@@ -109,34 +105,13 @@ def launch_game(args):
                                  for k, v in opp_kwargs.items()])
     else:
         opp_command = OPPONENT_COMMAND
+
     _play_game("./halite", map_width, map_height,
                [bot_command, opp_command])
 
     print(".")
 
 
-def map_parameters(args):
-    """
-    Given a list of args between 0 and 1 expand them to their real value
-    Given no args fetch default values and scale it down to 0-1 domain using
-    min and max values.
-    The parameter mapping file is a dict in the form:
-    "param_name": [default,min,max]
-    :param args:
-    :type args:
-    :return:
-    :rtype: dict
-    """
-    with open("parameter_mapping.json") as f:
-        params = json.load(f)
-        if args:
-            iter_args = iter(args)
-            params = {k: next(iter_args) * (v[2] - v[1]) + v[1]
-                      for k, v in params.items()}
-        else:
-            params = {k: (v[0] - v[1]) / (v[2] - v[1]) for k, v in
-                      params.items()}
-    return params
 
 
 if __name__ == "__main__":
