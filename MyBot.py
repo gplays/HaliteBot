@@ -5,12 +5,16 @@ to log anything use the logging module.
 """
 import argparse
 import logging
+import pickle
 import sys
 import traceback
 
 import hlt
 from hlt.constants import MAX_SPEED
 from hlt.navigation_optim import navigate_optimize
+from utils.param_handling import map_parameters
+
+THREAT_THRESHOLD = 1
 
 
 def run_game(game, kwargs):
@@ -34,7 +38,7 @@ def run_game(game, kwargs):
             if ship.can_dock(nearest_planet):
                 logging.info("DOCKING")
                 # Threat_level set at 0
-                if nearest_planet.threat_level < kwargs["threat_threshold"]:
+                if nearest_planet.threat_level < THREAT_THRESHOLD:
                     command_queue.append(ship.dock(nearest_planet))
                     immobile_ships.append(ship)
                     continue
@@ -45,33 +49,30 @@ def run_game(game, kwargs):
         foes = game_map.all_ennemy_ships()
 
         if mobile_ships:
-            commands = navigate_optimize(mobile_ships, foes, immobile_entities,
-                                         kwargs["thrust_ratio"] * MAX_SPEED)
+            borders = (game_map.width, game_map.height)
+            args = [mobile_ships, foes, immobile_entities,
+                    kwargs["thrust_ratio"] * MAX_SPEED, borders]
+            # dump_pre_navigation(*args)
+            commands = navigate_optimize(*args)
             command_queue.extend(commands)
 
-        # Send our set of commands to the Halite engine for this turn
         game.send_command_queue(command_queue)
         # TURN END
 
 
-        # GAME END
+
+def dump_pre_navigation(*args):
+    with open("pickled", "wb") as f:
+        pickle.dump(args, f)
 
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
+    default = map_parameters(map_parameters([]).values())
 
-    parser.add_argument("--collision_offset", type=float, default=1)
-    parser.add_argument("--k_collision", type=float, default=1.5)
-    parser.add_argument("--k_foe", type=float, default=60)
-    parser.add_argument("--k_planet", type=float, default=60)
-    parser.add_argument("--k_swarm", type=float, default=30)
-    parser.add_argument("--threat_threshold", type=float, default=1)
-    parser.add_argument("--w_collision", type=float, default=2)
-    parser.add_argument("--w_swarm", type=float, default=-1000)
-    parser.add_argument("--w_foe", type=float, default=-1000)
-    parser.add_argument("--w_planet", type=float, default=-1000)
-    parser.add_argument("--thrust_ratio", type=float, default=0.5)
+    parser = argparse.ArgumentParser()
+    for key, value in default.items():
+        parser.add_argument("--" + key, type=float, default=value)
 
 
     def exception_handler(exception_type, exception, tb):

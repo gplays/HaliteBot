@@ -105,8 +105,8 @@ def update_id(level):
 def update_parameter_mapping():
     best_path = path.join(data_path("experiment"), "best")
     onlyfiles = [f for f in os.listdir(best_path) if f.startswith("params")]
-    best_params_path = max(onlyfiles)
-    with open(best_params_path) as f:
+    best_params_file = max(onlyfiles)
+    with open(path.join(best_path, best_params_file)) as f:
         best_params = json.load(f)
     with open("parameter_mapping.json") as f:
         params = json.load(f)

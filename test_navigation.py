@@ -6,6 +6,7 @@ import numpy as np
 import pickle
 import hlt.navigation_optim as nav
 from hlt.entity import Entity, Ship, Planet
+from utils.param_handling import map_parameters
 
 
 class TestNavigation(unittest.TestCase):
@@ -79,10 +80,8 @@ class TestNavigation(unittest.TestCase):
         e2 = Planet(planet_id=1, x=100, y=150, hp=100, radius=15,
                     docking_spots=2, current=0,
                     remaining=5, owned=0, owner=0, docked_ships=0)
-        params = {"k_planet": 60,
-                  "w_planet": -1,
-                  "k_swarm": 30,
-                  "w_swarm": -1}
+        params = map_parameters(map_parameters([]).values())
+
         e1.augment(1, params)
         e2.augment(1, params)
         all_entities = [e1, e2]
@@ -111,7 +110,7 @@ class TestNavigation(unittest.TestCase):
         img = img * 255
         img = np.dstack((img, img, img))
 
-        draw_entities(img, apex, unit_vec, all_entities)
+        draw_entities(img, unit_vec, all_entities)
 
     def _test_grad_cons(self):
         m = 2
@@ -136,9 +135,9 @@ class TestNavigation(unittest.TestCase):
         img[:, :, :2] = np.array(grad)
         img = np.uint8(img)
 
-        draw_entities(img, apex, unit_vec, all_entities)
+        draw_entities(img, unit_vec, all_entities)
 
-    def _test_obj_fun(self):
+    def test_obj_fun(self):
         m = 3
         n = 1
 
@@ -152,10 +151,7 @@ class TestNavigation(unittest.TestCase):
                     docking_spots=7, current=0,
                     remaining=5, owned=0, owner=0, docked_ships=0)
         all_entities = [e1, e2, e3]
-        params = {"k_planet": 60,
-                  "w_planet": -1,
-                  "k_swarm": 30,
-                  "w_swarm": -1}
+        params = map_parameters(map_parameters([]).values())
 
         for e in all_entities:
             e.augment(1, params)
@@ -175,7 +171,7 @@ class TestNavigation(unittest.TestCase):
 
         img = np.dstack((img, img, img))
 
-        draw_entities(img, apex, unit_vec, all_entities)
+        draw_entities(img, unit_vec, all_entities)
 
     def _test_optimize(self):
         with open("pickled", "rb") as f:
@@ -184,20 +180,16 @@ class TestNavigation(unittest.TestCase):
         nav.navigate_optimize(*args)
 
 
-def draw_entities(img, apex, unit_vec, all_entities):
+def draw_entities(img, unit_vec, all_entities):
     x = all_entities[0].x
     y = all_entities[0].y
     r = all_entities[0].radius
 
-    apex_x, apex_y = (int(i) for i in apex[0, 1])
     unit_vec_x, unit_vec_y = (int(i * 10) for i in unit_vec[0, 1])
 
     # Draw unit vect
     cv2.line(img, (x, y), (x + unit_vec_x, y + unit_vec_y),
              (255, 0, 0), 1, cv2.LINE_AA)
-
-    # Draw Apex
-    cv2.circle(img, (apex_x, apex_y), 2, (255, 0, 0), -1, cv2.LINE_AA)
 
     # Draw all entities
     for e in all_entities:
@@ -213,6 +205,15 @@ def draw_entities(img, apex, unit_vec, all_entities):
 
 
 def fit_255(nparray):
+    return np.uint8(255 * (nparray - nparray.min()) /
+                    (nparray.max() - nparray.min()))
+
+def fit_255_log(nparray):
+    print("max ",nparray.max())
+    print("min ",nparray.min())
+    print("mean ",nparray.mean())
+    nparray = nparray -nparray.min()+1e-3
+    nparray = np.log(nparray)
     return np.uint8(255 * (nparray - nparray.min()) /
                     (nparray.max() - nparray.min()))
 

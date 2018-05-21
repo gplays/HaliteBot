@@ -4,17 +4,140 @@ author: MengGuo for initial version, modified by Guillaume Plays
 
 # TODO modify for use as navigation system
 
+import math
 from math import cos, sin, atan2, asin
 from math import pi as PI
 from math import sqrt
 
 import numpy
+import numpy as np
+from numpy import linalg as la
 
-def resolve_conflicts(list_moves,
-                      all_planets,
-                      avoid_planets=True,
-                      avoid_ships=True):
-    pass
+from hlt.entity import Entity, Position
+
+
+def velocity_constraint_parabola(entity1, entity2, max_speed):
+    origin = Position.from_entity(entity1)
+    b = Position.from_entity(entity2) - origin
+
+    r = entity1.radius + entity2.radius
+
+    norm_b = Position.normed(b)
+    orth_b = Position.orth(norm_b)
+
+    apex = b - norm_b * r
+
+    # velocity difference as if the apex was the origin,
+    # simplify operations later
+    diff_vel = entity1.vel - entity2.vel - apex
+
+    constraint = diff_vel.dot(norm_b) ** 2 - 2 * r * diff_vel.dot(orth_b) < 0
+
+    return constraint
+
+
+def check_velocity_constraint(entity1, entity2, max_speed):
+    """
+
+    :param entity1:
+    :type entity1: Entity
+    :param entity2:
+    :type entity2: Entity
+    :return:
+    :rtype:
+    """
+    origin = Position.from_entity(entity1)
+    b = Position.from_entity(entity2) - origin
+    d = math.sqrt(b.x ** 2 + b.x ** 2)
+    r = entity1.radius + entity2.radius
+
+    if d - r < 2 * max_speed:
+        p1, p2 = find_adhesion_cone_circle_centered(b, r)
+        # diff_vel = entity1.vel - entity2.vel
+
+        # orthogonal because tangent definition
+        ray_normals = [b - p1, b - p2]
+
+        np.array([[ray_normals[0].x, ray_normals[0].y],
+                  [ray_normals[0].x, ray_normals[0].y]])
+
+        def constraint(diff_vel):
+            return (ray_normals[0] * diff_vel < 0 or
+                    ray_normals[1] * diff_vel < 0 or
+                    b * diff_vel < 1 - r / d)
+    else:
+        constraint = None
+    return constraint
+
+
+def find_adhesion_cone_circle_centered(b, r):
+    """
+    Compute the coordinates of the intersection between the circle of center
+    b and radius r and its tangent passing by a. A is at the origin of the space
+
+    :param b: Position of point B
+    :type b: Position
+    :param r: Sum of the radius of A and B
+    :type r: float
+    :return: The coordinates of the intersections
+    :rtype: tuple(Position)
+    """
+    d2 = b.x ** 2 + b.x ** 2
+    r2 = r ** 2
+    norm_c_2 = d2 - r2
+    norm_c = math.sqrt(norm_c_2)
+
+    # NB can be solved with determinant computation
+    # Solving using scalar product and vectorial product and using the
+    # the geometrical projection to have explicit expression of sin and cos
+    p1 = Position(*solve_x_y([b.x, -b.x],
+                             [b.x, b.x],
+                             [norm_c_2, norm_c * r]))
+
+    p2 = Position(*solve_x_y([b.x, b.x],
+                             [b.x, -b.x],
+                             [norm_c_2, norm_c * r]))
+
+    return (p1, p2)
+
+
+def find_adhesion_cone_circle(a, b, r):
+    """
+    Compute the coordinates of the intersection between the circle of center
+    b and radius r and its tangent passing by a
+
+    :param a: Position of point A
+    :type a: (float,float)
+    :param b: Position of point B
+    :type b: (float,float)
+    :param r: Sum of the radius of A and B
+    :type r: float
+    :return: The coordinates of the intersections
+    :rtype:
+    """
+    xA, yA = a
+    xB, yB = b
+    xB -= xA
+    yB -= yA
+    d2 = xB ** 2 + yB ** 2
+    r2 = r ** 2
+    norm_c_2 = d2 - r2
+    norm_c = math.sqrt(norm_c_2)
+
+    # NB can be solved with determinant computation
+    x1C, y1C = solve_x_y([xB, -yB], [yB, xB], [norm_c_2, norm_c * r])
+
+    x2C, y2C = solve_x_y([xB, yB], [yB, -xB], [norm_c_2, norm_c * r])
+
+    adhesion_x_y = [(x + xA, y + yA) for x, y in [(x1C, y1C), (x2C, y2C)]]
+    return adhesion_x_y
+
+
+def solve_x_y(a, b, c):
+    n = b[1] * a[0] - b[0] * a[1]
+    y = (c[1] * a[0] - c[0] * a[1]) / n
+    x = (c[1] * b[0] - c[0] * b[1]) / -n
+    return x, y
 
 
 def distance(pose1, pose2):
@@ -110,7 +233,6 @@ def RVO_update(X, V_des, V_current,
 
         vA_post = intersect(pA, V_des[i], RVO_BA_all)
         V_opt[i] = vA_post[:]
-
 
     return V_opt
 

@@ -98,12 +98,13 @@ class Entity:
         return Position(x, y)
 
     @property
-    def kernel(self):
-        return 0
+    def kernels(self):
+        raise NotImplementedError
+
 
     @property
-    def factor(self):
-        return 0
+    def factors(self):
+        raise NotImplementedError
 
     @abc.abstractmethod
     def _link(self, players, planets):
@@ -111,6 +112,7 @@ class Entity:
 
     def __str__(self):
         return "Entity {} (id: {}) at position: (x = {}, y = {}), with radius " \
+               "" \
                "" \
                "" \
                "" \
@@ -162,8 +164,7 @@ class Planet(Entity):
         self.vel = Position(0, 0)
         self.threat_level = 0
         self.me = -1
-        self.params={}
-
+        self.params = {}
 
     @property
     def type(self):
@@ -171,22 +172,26 @@ class Planet(Entity):
             return ALLY_PLANET
         else:
             return FOE_PLANET
+
     @property
-    def kernel(self):
+    def kernels(self):
         if self.type == ALLY_PLANET:
             free_spots = self.num_docking_spots - len(self.all_docked_ships)
-            k = math.sqrt(1 + free_spots) * self.params["k_planet"]
+            ratio = len(self.all_docked_ships) / self.num_docking_spots
+
+            k = math.sqrt(1 + free_spots) * self.params["k_planet_opportunity"]
+            k2 = math.sqrt(1 + ratio) * self.params["k_planet_threat"]
         else:
-            k = math.sqrt(1 + len(self.all_docked_ships)) * self.params[
-                "k_planet"]
-        return k
+            k = math.sqrt(1 + len(self.all_docked_ships)) * \
+                self.params["k_planet_opportunity"]
+            k2 = self.params["k_planet_threat"]
+        return k, k2
+
     @property
-    def factor(self):
-        if self.type == ALLY_PLANET:
-            f = self.params["w_planet"]
-        else:
-            f = self.params["w_planet"]
-        return f
+    def factors(self):
+        f = self.params["w_planet_opportunity"]
+        f2 = self.params["w_planet_threat"]
+        return f, f2
 
     @property
     def isPlanet(self):
@@ -339,7 +344,7 @@ class Ship(Entity):
         self._docking_progress = progress
         self._weapon_cooldown = cooldown
         self.target = None
-        self.vel = Position(vel_x, vel_y)
+        self.vel = Position(0, 0)
         self.me = -1
         self.params = {}
 
@@ -351,20 +356,24 @@ class Ship(Entity):
             return FOE
 
     @property
-    def kernel(self):
+    def kernels(self):
         if self.type == ALLY:
             k = self.params["k_swarm"]
+            k2 = self.params["k_collision"]
         else:
-            k = self.params["k_foe"]
-        return k
+            k = self.params["k_foe_opportunity"]
+            k2 = self.params["k_foe_threat"]
+        return k, k2
 
     @property
-    def factor(self):
+    def factors(self):
         if self.type == ALLY:
             f = self.params["w_swarm"]
+            f2 = self.params["w_collision"]
         else:
-            f = self.params["w_foe"]
-        return f
+            f = self.params["w_foe_opportunity"]
+            f2 = self.params["w_foe_threat"]
+        return f, f2
 
     @property
     def isShip(self):
@@ -444,7 +453,6 @@ class Ship(Entity):
         :rtype: str
         """
         self.vel = Position(x, y)
-        self.target = Position(self.x + x, self.y + y)
         angle = int(math.degrees(math.atan2(y, x))) % 360
         magnitude = round(math.sqrt(x ** 2 + y ** 2))
         return self.thrust(magnitude, angle)
