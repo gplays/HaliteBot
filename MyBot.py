@@ -10,11 +10,10 @@ import sys
 import traceback
 
 import hlt
-from hlt.constants import MAX_SPEED
+from hlt.Grid import GridSet
+from hlt.constants import MAX_SPEED, DOCK_THRESHOLD, UNDOCK_THRESHOLD
 from hlt.navigation_optim import navigate_optimize
 from utils.param_handling import map_parameters
-
-THREAT_THRESHOLD = 1
 
 
 def run_game(game, kwargs):
@@ -23,42 +22,37 @@ def run_game(game, kwargs):
         game_map = game.update_map()
 
         command_queue = []
-        immobile_ships = []
-        mobile_ships = []
+
         game_map.augment_entities(kwargs)
-        for ship in game_map.get_me().all_ships():
+        all_entities = game_map.all_entities
 
-            # Skip docked ships
-            if ship.docking_status != ship.DockingStatus.UNDOCKED:
-                immobile_ships.append(ship)
-                continue
+        gridSet = GridSet((8, 16, 32), all_entities)
+        game_map.set_gridSet(gridSet)
+        game_map.compute_planet_threat_attractivity()
 
-            # Check possibility of docking
+        for ship in game_map.my_undocked_ships:
             nearest_planet = game_map.get_nearest_planet(ship)
-            if ship.can_dock(nearest_planet):
-                logging.info("DOCKING")
-                # Threat_level set at 0
-                if nearest_planet.threat_level < THREAT_THRESHOLD:
-                    command_queue.append(ship.dock(nearest_planet))
-                    immobile_ships.append(ship)
-                    continue
+            if (nearest_planet.threat_level < DOCK_THRESHOLD and
+                    ship.can_dock(nearest_planet)):
+                command_queue.append(ship.dock(nearest_planet))
 
-            mobile_ships.append(ship)
+        for ship in game_map.my_docked_ships:
+            if (ship.planet is not None and
+                    ship.planet.threat_level > UNDOCK_THRESHOLD):
+                command_queue.append(ship.undock())
 
-        immobile_entities = immobile_ships + game_map.all_planets()
-        foes = game_map.all_ennemy_ships()
+        game_map.assign_targets()
 
+        mobile_ships = game_map.my_undocked_ships
         if mobile_ships:
-            borders = (game_map.width, game_map.height)
-            args = [mobile_ships, foes, immobile_entities,
-                    kwargs["thrust_ratio"] * MAX_SPEED, borders]
+            max_speed = kwargs["thrust_ratio"] * MAX_SPEED
+            args = [game_map, mobile_ships, max_speed]
             # dump_pre_navigation(*args)
             commands = navigate_optimize(*args)
             command_queue.extend(commands)
 
         game.send_command_queue(command_queue)
         # TURN END
-
 
 
 def dump_pre_navigation(*args):

@@ -28,3 +28,8 @@ FOE = 2
 FREE_PLANET = 3
 ALLY_PLANET = 4
 FOE_PLANET = 5
+# Used for distance influence for target definition
+DIST_POWER = 0.5
+
+DOCK_THRESHOLD=0.6
+UNDOCK_THRESHOLD=0.8

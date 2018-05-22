@@ -1,5 +1,7 @@
+import numpy as np
+from hlt.entity import Ship, Position
 from . import collision, entity
-from .constants import ALLY, FOE, ALLY_PLANET, FOE_PLANET
+from .constants import ALLY, FOE, ALLY_PLANET, FOE_PLANET, DIST_POWER
 
 
 class Map:
@@ -22,6 +24,12 @@ class Map:
         self.height = height
         self._players = {}
         self._planets = {}
+        self.gridSet = None
+
+
+    def set_gridSet(self,gridSet):
+        self.gridSet = gridSet
+
 
     def get_me(self):
         """
@@ -53,6 +61,15 @@ class Map:
         """
         return self._planets.get(planet_id)
 
+    @property
+    def all_entities(self):
+        """
+        Handle for all entities
+        :return: All entities
+        :rtype: [Entity]
+        """
+        return self._all_ships() + self.all_planets()
+
     def all_planets(self):
         """
         :return: List of all planets
@@ -61,6 +78,14 @@ class Map:
         return list(self._planets.values())
 
     def augment_entities(self, params):
+        """
+        Add info about ME player on all entities and the keyword arguments
+        used to run the script
+        :param params:
+        :type params:
+        :return:
+        :rtype:
+        """
 
         for e in self._all_ships() + self.all_planets():
             e.augment(self.get_me(), params)
@@ -112,8 +137,9 @@ class Map:
         self._planets, tokens = entity.Planet._parse(tokens)
 
         assert (
-            len(
-                tokens) == 0)  # There should be no remaining tokens at this
+                len(
+                        tokens) == 0)  # There should be no remaining tokens
+        # at this
         # point
         self._link()
 
@@ -160,18 +186,73 @@ class Map:
             all_entities[entity_type].append(planet)
         return all_entities
 
-    def compute_threat_docking(self, planet):
+    def compute_planet_threat_attractivity(self):
         """
         Compute a threat level for the vicinity of a planet
         Helps to decide wether or not to dock/undock
 
-        :param planet: The reference for the Threat assessment
-        :type planet: Planet
-        :return: Threat level
-        :rtype: int
         """
-        # TODO
-        return 0
+        if self.gridSet is None:
+            raise AttributeError
+        for planet in self.all_planets():
+            entities = self.gridSet.get_neighbours(planet, lvl=2)
+            # list of ones for my ship, zeros for his
+            ships = [int(entity.isMine) for entity in entities if
+                     entity.isMobile]
+            tot_ships = len(ships)
+            threat_level = 0
+            attractivity_level = 0
+            foe_presence = tot_ships - sum(ships)
+            if tot_ships > 0:
+                attractivity_level -= foe_presence + tot_ships
+                threat_level = foe_presence / tot_ships
+
+            planet.set_threat(threat_level)
+            planet.set_attractivity(attractivity_level)
+
+    def assign_targets(self):
+        """
+        Assign a target for each ship using planet attractivity
+        The attractivity is discounted by the distance
+        """
+        my_ships = self.my_undocked_ships
+        planets = self.all_planets()
+        ship_pos = np.array([[e.x, e.y] for e in my_ships])
+        planet_pos = np.array([[e.x, e.y] for e in planets])
+        planet_att = np.array([e.attractivity_level
+                               for e in planets])
+        n_ship = ship_pos.shape[0]
+        n_planet = planet_pos.shape[0]
+        diff_pos = (np.broadcast_to(ship_pos.reshape(n_ship, 1, 2),
+                                    (n_ship, n_planet, 2)) -
+                    np.broadcast_to(planet_pos.reshape(1, n_planet, 2),
+                                    (n_ship, n_planet, 2)))
+        dist = np.sum(diff_pos * diff_pos, axis=2)
+        dist = np.power(dist, DIST_POWER)
+        attractivity = dist * planet_att
+        for i, ship in enumerate(my_ships):
+            planet_ind = np.argmax(attractivity[i, :])
+            ship.target = Position.from_entity(planets[planet_ind])
+
+    @property
+    def my_undocked_ships(self):
+        """
+        Shortcut to retrieve only my undocked ships
+        :return:
+        :rtype:
+        """
+        return [ship for ship in self.get_me().all_ships()
+                if ship.docking_status == Ship.DockingStatus.UNDOCKED]
+
+    @property
+    def my_docked_ships(self):
+        """
+        Shortcut to retrieve only my docked ships
+        :return:
+        :rtype:
+        """
+        return [ship for ship in self.get_me().all_ships()
+                if ship.docking_status != Ship.DockingStatus.DOCKED]
 
     def _intersects_entity(self, target):
         """

@@ -31,7 +31,7 @@ class Entity:
         self.health = health
         self.owner = player
         self.id = entity_id
-        self.vel = (0, 0)
+        self.vel = Position(0, 0)
         self.me = -1
         self.params = {}
 
@@ -44,6 +44,9 @@ class Entity:
 
     @property
     def isShip(self): return False
+
+    @property
+    def isMobile(self): return False
 
     def calculate_distance_between(self, target):
         """
@@ -101,7 +104,6 @@ class Entity:
     def kernels(self):
         raise NotImplementedError
 
-
     @property
     def factors(self):
         raise NotImplementedError
@@ -112,6 +114,8 @@ class Entity:
 
     def __str__(self):
         return "Entity {} (id: {}) at position: (x = {}, y = {}), with radius " \
+               "" \
+               "" \
                "" \
                "" \
                "" \
@@ -163,6 +167,7 @@ class Planet(Entity):
         self._docked_ships = {}
         self.vel = Position(0, 0)
         self.threat_level = 0
+        self.attractivity_level = 0
         self.me = -1
         self.params = {}
 
@@ -237,13 +242,17 @@ class Planet(Entity):
         """
         return len(self._docked_ship_ids) >= self.num_docking_spots
 
-    def compute_threat(self, map):
+    def set_threat(self, threat):
         """
-        Compute and update the threat level
-        :return:
-        :rtype:
+        Set the threat level
         """
-        pass
+        self.threat_level = threat
+
+    def set_attractivity(self, attractivity):
+        """
+        Set the attractivity level
+        """
+        self.attractivity_level = attractivity
 
     def _link(self, players, planets):
         """
@@ -340,7 +349,7 @@ class Ship(Entity):
         self.health = hp
         self.docking_status = docking_status
         self.planet = planet if (
-            docking_status is not Ship.DockingStatus.UNDOCKED) else None
+                docking_status is not Ship.DockingStatus.UNDOCKED) else None
         self._docking_progress = progress
         self._weapon_cooldown = cooldown
         self.target = None
@@ -382,6 +391,10 @@ class Ship(Entity):
     @property
     def isMobile(self):
         return self.docking_status == Ship.DockingStatus.UNDOCKED
+
+    @property
+    def isMine(self):
+        return self.owner == self.me
 
     def thrust(self, magnitude, angle):
         """
@@ -540,23 +553,9 @@ class Ship(Entity):
         keyed by id
         :return: nothing
         """
-        self.owner = players.get(
-            self.owner)  # All ships should have an owner. If not, this will
-        # just reset to None
+        self.owner = players.get(self.owner)
+        # All ships should have an owner. If not, this will just reset to None
         self.planet = planets.get(self.planet)  # If not will just reset to none
-
-    def compute_grad(self, e_type, foreign_entity, **kwargs):
-        grad = (0, 0)
-        if e_type == ALLY:
-            grad = self._grad_ally(foreign_entity, **kwargs)
-        elif e_type == FOE:
-            grad = self._grad_foe(foreign_entity, **kwargs)
-        elif e_type == ALLY_PLANET:
-            grad = self._grad_ally_planet(foreign_entity, **kwargs)
-        elif e_type == FOE_PLANET:
-            grad = self._grad_foe_planet(foreign_entity, **kwargs)
-
-        return grad
 
     @staticmethod
     def _parse_single(player_id, tokens):
@@ -601,64 +600,6 @@ class Ship(Entity):
             ship_id, ships[ship_id], remainder = Ship._parse_single(player_id,
                                                                     remainder)
         return ships, remainder
-
-    def _grad_ally(self, ally, **kwargs):
-        """
-        Lennard Jones like potential
-        min = exp( (-log(SWARM_STABILITY) / (K_SWARM - K_COLL_ALLY) )
-        :param ally:
-        :type ally:
-        :return:
-        :rtype:
-        """
-        # If too much collision, can introduce an offset to dist
-
-        grad_x, grad_y = grad_gaussian(self, ally,
-                                       kwargs["w_collision"],
-                                       kwargs["k_collision"])
-        grad2_x, grad2_y = grad_gaussian(self, ally,
-                                         kwargs["w_swarm"],
-                                         kwargs["k_swarm"],
-                                         offset=kwargs["collision_offset"])
-
-        return grad_x + grad2_x, grad_y + grad2_y
-
-    def _grad_foe(self, foe, **kwargs):
-        """
-        Gaussian gradient
-        :param foe:
-        :type foe:
-        :return:
-        :rtype:
-        """
-        return grad_gaussian(self, foe, kwargs["w_foe"], kwargs["k_foe"])
-
-    def _grad_ally_planet(self, planet, **kwargs):
-        """
-        Gaussian gradient
-        :param planet:
-        :type planet: Planet
-        :return:
-        :rtype:
-        """
-
-        free_spots = planet.num_docking_spots - len(planet.all_docked_ships)
-
-        K = math.sqrt(1 + free_spots) * kwargs["k_planet"]
-
-        return grad_gaussian(self, planet, kwargs["w_planet"], K)
-
-    def _grad_foe_planet(self, planet, **kwargs):
-        """
-        Gaussian gradient
-        :param planet:
-        :type planet: Planet
-        :return:
-        :rtype:
-        """
-        K = math.sqrt(1 + len(planet.all_docked_ships)) * kwargs["k_planet"]
-
-        return grad_gaussian(self, planet, kwargs["w_planet"], K)
 
 
 class Position(Entity):
@@ -729,6 +670,23 @@ class Position(Entity):
     @staticmethod
     def from_entity(entity):
         return Position(entity.x, entity.y)
+
+
+class Centroid(Entity):
+    def __init__(self, x, y, factors, kernels):
+        self.x = x
+        self.y = y
+        self.vel = Position(0,0)
+        self._factors = factors
+        self._kernels = kernels
+
+    @property
+    def factors(self):
+        return self._factors
+
+    @property
+    def kernels(self):
+        return self._kernels
 
 
 def grad_gaussian(ship, entity, weight, kernel_width, offset=0):
