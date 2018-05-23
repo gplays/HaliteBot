@@ -5,7 +5,9 @@ import cv2
 import numpy as np
 import pickle
 import hlt.navigation_optim as nav
-from hlt.entity import Entity, Ship, Planet
+from hlt.constr_RVO import const_RVO_cone, constraints_pre_cone, jac_RVO_cone
+from hlt.constr_para import constraints_pre, const_RVO, jac_RVO
+from hlt.entity import Entity, Ship, Planet, Position
 from utils.param_handling import map_parameters
 
 
@@ -17,17 +19,17 @@ class TestNavigation(unittest.TestCase):
     def setUp(self):
         e1 = Entity(100, 100, 5, 10, 1, 1)
         e2 = Entity(100, 150, 10, 10, 1, 2)
-        e3 = Entity(20, 40, 5, 10, 1, 3)
+        e3 = Entity(120, 105, 5, 10, 1, 3)
         e4 = Entity(100, 50, 30, 10, 1, 4)
         self.entities = [e1, e2, e3, e4]
-        self.max_speed = 50
+        self.max_speed = 80
 
     def _test_constraints_pre(self):
         m = 2
         n = 1
         all_entities = self.entities[:m]
-        unit_vec, apex, rad, all_pos, dist = nav.constraints_pre(n, m,
-                                                                 all_entities)
+        unit_vec, apex, rad, all_pos, dist = constraints_pre(n, m,
+                                                             all_entities)
         for e in all_entities:
             print(e)
         print("unit_vec", unit_vec)
@@ -42,10 +44,10 @@ class TestNavigation(unittest.TestCase):
         e1 = Entity(100, 100, 5, 10, 1, 1)
         e2 = Entity(100, 150, 10, 10, 1, 2)
         all_entities = [e1, e2]
-        unit_vec, apex, rad, all_pos, dist = nav.constraints_pre(n, m,
-                                                                 all_entities)
+        unit_vec, apex, rad, all_pos, dist = constraints_pre(n, m,
+                                                             all_entities)
 
-        cons = nav.const_RVO(n, m, unit_vec, dist, rad, self.max_speed ** 2)
+        cons = const_RVO(n, m, unit_vec, dist, rad, self.max_speed ** 2)
 
         print("value before apex", cons([0, 30]))
         print("value at apex", cons([0, 35]))
@@ -57,10 +59,10 @@ class TestNavigation(unittest.TestCase):
         e1 = Entity(100, 100, 5, 10, 1, 1)
         e2 = Entity(100, 150, 10, 10, 1, 2)
         all_entities = [e1, e2]
-        unit_vec, apex, rad, all_pos, dist = nav.constraints_pre(n, m,
-                                                                 all_entities)
+        unit_vec, apex, rad, all_pos, dist = constraints_pre(n, m,
+                                                             all_entities)
 
-        jac = nav.jac_RVO(n, m, unit_vec, rad)
+        jac = jac_RVO(n, m, unit_vec, rad)
 
         print("grad value before apex", jac([0, 30])[0])
         print("grad value at apex", jac([0, 35])[0])
@@ -93,10 +95,10 @@ class TestNavigation(unittest.TestCase):
         m = 4
         n = 1
         all_entities = self.entities[:m]
-        unit_vec, apex, rad, all_pos, dist = nav.constraints_pre(n, m,
-                                                                 all_entities)
+        unit_vec, apex, rad, all_pos, dist = constraints_pre(n, m,
+                                                             all_entities)
 
-        cons = nav.const_RVO(n, m, unit_vec, dist, rad, self.max_speed ** 2)
+        cons = const_RVO(n, m, unit_vec, dist, rad, self.max_speed ** 2)
 
         x = self.entities[0].x
         y = self.entities[0].y
@@ -110,16 +112,83 @@ class TestNavigation(unittest.TestCase):
         img = img * 255
         img = np.dstack((img, img, img))
 
-        draw_entities(img, unit_vec, all_entities)
+        draw_entities(img, all_entities, unit_vec=unit_vec)
+
+    def test_compute_1RVOCone_constraint(self):
+        m = 4
+        n = 1
+        all_entities = self.entities[:m]
+        all_entities[1].vel = Position(0, -20)
+        preprocess = constraints_pre_cone(n, m, all_entities,
+                                          self.max_speed)
+        all_pos, diff_pos, sum_rad, u1, u2, u3, d3, speed_sq, collision_idx, \
+        prev_vel = preprocess
+
+        cons = const_RVO_cone(diff_pos, sum_rad, u1, u2, u3, d3, speed_sq,
+                              collision_idx, prev_vel)
+        x = self.entities[0].x
+        y = self.entities[0].y
+
+        cons((100 - x, 40 - y))
+        n_cons = len(cons([0, 0]))
+
+        # for k in range(n_cons):
+        #     print("#"*10)
+        #     for j in range(20):
+        #         print(" ".join(["{:3}".format(cons([i * 10 - x, j * 10 -
+        #                                              y])[k]<=0)
+        #                       for i in range(20)]))
+        # for k in range(n_cons):
+        #     print("#"*10)
+        #     img = [[cons([i - x, j - y])[k] < 0
+        #             for i in range(200)]
+        #            for j in range(200)]
+        #     img = np.array(img, dtype=np.uint8)
+        #     img = img * 255
+        #     img = np.dstack((img, img, img))
+        #     draw_entities(img, all_entities)
+
+        img = [[all([cons([i - x, j - y])[k] < 0 for k in range(n_cons)])
+                for i in range(200)]
+               for j in range(200)]
+
+        img = np.array(img, dtype=np.uint8)
+        img = img * 255
+        img = np.dstack((img, img, img))
+
+        draw_entities(img, all_entities)
+
+    def _test_compute_1RVOCone_jac(self):
+        m = 4
+        n = 1
+        all_entities = self.entities[:m]
+        preprocess = constraints_pre_cone(n, m, all_entities,
+                                          self.max_speed)
+        all_pos, diff_pos, sum_rad, u1, u2, u3, d3, speed_sq, collision_idx, \
+        prev_vel = preprocess
+
+        jac = jac_RVO_cone(diff_pos, sum_rad, u1, u2, u3, d3, collision_idx,
+                           prev_vel)
+        x = self.entities[0].x
+        y = self.entities[0].y
+
+        img = np.array([[np.sum(jac([i - x, j - y]), axis=0)[1]
+                         for i in range(200)]
+                        for j in range(200)])
+        img = fit_255(img)
+        img = np.uint8(img)
+        img = np.dstack((img, img, img))
+
+        draw_entities(img, all_entities)
 
     def _test_grad_cons(self):
         m = 2
         n = 1
         all_entities = self.entities[:m]
-        unit_vec, apex, rad, all_pos, dist = nav.constraints_pre(n, m,
-                                                                 all_entities)
+        unit_vec, apex, rad, all_pos, dist = constraints_pre(n, m,
+                                                             all_entities)
 
-        jac = nav.jac_RVO(n, m, unit_vec, rad)
+        jac = jac_RVO(n, m, unit_vec, rad)
 
         x = self.entities[0].x
         y = self.entities[0].y
@@ -135,9 +204,9 @@ class TestNavigation(unittest.TestCase):
         img[:, :, :2] = np.array(grad)
         img = np.uint8(img)
 
-        draw_entities(img, unit_vec, all_entities)
+        draw_entities(img, all_entities, unit_vec=unit_vec)
 
-    def test_obj_fun(self):
+    def _test_obj_fun(self):
         m = 3
         n = 1
 
@@ -158,8 +227,8 @@ class TestNavigation(unittest.TestCase):
 
         fun_grad, hess = nav.objective_function(n, m, all_entities)
 
-        unit_vec, apex, rad, all_pos, dist = nav.constraints_pre(n, m,
-                                                                 all_entities)
+        unit_vec, apex, rad, all_pos, dist = constraints_pre(n, m,
+                                                             all_entities)
 
         x = self.entities[0].x
         y = self.entities[0].y
@@ -171,7 +240,7 @@ class TestNavigation(unittest.TestCase):
 
         img = np.dstack((img, img, img))
 
-        draw_entities(img, unit_vec, all_entities)
+        draw_entities(img, all_entities, unit_vec=unit_vec)
 
     def _test_optimize(self):
         with open("pickled", "rb") as f:
@@ -180,16 +249,17 @@ class TestNavigation(unittest.TestCase):
         nav.navigate_optimize(*args)
 
 
-def draw_entities(img, unit_vec, all_entities):
+def draw_entities(img, all_entities, unit_vec=None):
     x = all_entities[0].x
     y = all_entities[0].y
     r = all_entities[0].radius
 
-    unit_vec_x, unit_vec_y = (int(i * 10) for i in unit_vec[0, 1])
+    if unit_vec is not None:
+        unit_vec_x, unit_vec_y = (int(i * 10) for i in unit_vec[0, 1])
 
-    # Draw unit vect
-    cv2.line(img, (x, y), (x + unit_vec_x, y + unit_vec_y),
-             (255, 0, 0), 1, cv2.LINE_AA)
+        # Draw unit vect
+        cv2.line(img, (x, y), (x + unit_vec_x, y + unit_vec_y),
+                 (255, 0, 0), 1, cv2.LINE_AA)
 
     # Draw all entities
     for e in all_entities:
@@ -208,11 +278,12 @@ def fit_255(nparray):
     return np.uint8(255 * (nparray - nparray.min()) /
                     (nparray.max() - nparray.min()))
 
+
 def fit_255_log(nparray):
-    print("max ",nparray.max())
-    print("min ",nparray.min())
-    print("mean ",nparray.mean())
-    nparray = nparray -nparray.min()+1e-3
+    print("max ", nparray.max())
+    print("min ", nparray.min())
+    print("mean ", nparray.mean())
+    nparray = nparray - nparray.min() + 1e-3
     nparray = np.log(nparray)
     return np.uint8(255 * (nparray - nparray.min()) /
                     (nparray.max() - nparray.min()))

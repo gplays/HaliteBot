@@ -20,7 +20,7 @@ MAP_HEIGHTS = [160, 180, 200, 256]
 CORES = int(cpu_count() / 2)
 
 
-CORES = 3
+# CORES = 3
 
 def clean_repository():
     """
@@ -69,12 +69,12 @@ def get_play_command(args):
     map_height = random.sample(MAP_HEIGHTS, 1)[0]
     map_width = int(3 * map_height / 2)
 
-    bot_command = "python MyBot.py "
+    bot_command = "python3 MyBot.py "
     bot_command += " ".join(["--{} {}".format(k, v) for k, v in kwargs.items()])
 
     if OPPONENT_COMMAND == "self":
         opp_kwargs = map_parameters(map_parameters(()).values())
-        opp_command = "python MyBot.py "
+        opp_command = "python3 MyBot.py "
         opp_command += " ".join(["--{} {}".format(k, v)
                                  for k, v in opp_kwargs.items()])
     else:
@@ -94,13 +94,13 @@ def launch_game(args):
     map_height = random.sample(MAP_HEIGHTS, 1)[0]
     map_width = int(3 * map_height / 2)
 
-    bot_command = "python MyBot.py "
+    bot_command = "python3 MyBot.py "
     bot_command += " ".join(
         ["--{} {}".format(k, v) for k, v in kwargs.items()])
 
     if OPPONENT_COMMAND == "self":
         opp_kwargs = map_parameters(map_parameters(()).values())
-        opp_command = "python MyBot.py "
+        opp_command = "python3 MyBot.py "
         opp_command += " ".join(["--{} {}".format(k, v)
                                  for k, v in opp_kwargs.items()])
     else:
@@ -130,4 +130,5 @@ if __name__ == "__main__":
         except InterruptedError:
             update_parameter_mapping()
         finally:
-            clean_repository()
+            # clean_repository()
+            pass

@@ -201,7 +201,7 @@ class Map:
                      entity.isMobile]
             tot_ships = len(ships)
             threat_level = 0
-            attractivity_level = 0
+            attractivity_level = -1
             foe_presence = tot_ships - sum(ships)
             if tot_ships > 0:
                 attractivity_level -= foe_presence + tot_ships
