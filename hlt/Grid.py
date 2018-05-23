@@ -57,15 +57,16 @@ class Grid(object):
         """
         all_factors = np.array([e.factors for e in entities])
         all_kernels = np.array([e.kernels for e in entities])
-
         kernel_ref = np.max(all_kernels, axis=0)
-        ref_pos = np.exp(-(self.size / kernel_ref) ** 2)
-        factors = np.sum(all_factors / ref_pos.reshape(1, 2) *
-                         np.exp(-(self.size / all_kernels) ** 2),
+
+        factors = np.sum(all_factors *
+                         np.exp((self.size / kernel_ref.reshape(1, 2)) ** 2 -
+                                (self.size / all_kernels) ** 2),
                          axis=0)
 
         kernels = (kernel_ref[0], kernel_ref[1])
         factors = (factors[0], factors[1])
+
         return factors, kernels
 
     def _compute_centroid(self, row, col, entities):

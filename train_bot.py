@@ -13,6 +13,7 @@ from utils.logging_id import (update_id, log_performances,
                               update_parameter_mapping)
 from utils.param_handling import map_parameters
 from utils.scoring import get_score
+from multiprocessing import Pool
 
 OPPONENT_COMMAND = "self"
 STORE_PATH = ".data"
@@ -26,8 +27,9 @@ def clean_repository():
     """
     Remove log files
     """
-    onlyfiles = [f for f in os.listdir(".") if
-                 f.endswith(".log") or f.endswith(".hlt")]
+    onlyfiles = [f for f in os.listdir(".") if f.endswith(".hlt")]
+    # onlyfiles = [f for f in os.listdir(".") if
+    #              f.endswith(".log") or f.endswith(".hlt")]
     for file in onlyfiles:
         os.remove(file)
 
@@ -44,11 +46,11 @@ def async_score(args, num_games=CORES):
     session_id = update_id("session")
 
     command = get_play_command(args)
-
     print("Session {}, playing {} games".format(session_id, num_games))
-    for i in range(num_games):
-        subprocess.check_output(command, shell=True)
-        print(".")
+    pool = Pool()
+    pool.map(play_game, [command] * num_games)
+    pool.close()
+    pool.join()
 
     print("All games of the session have been played")
 
@@ -89,6 +91,11 @@ def get_play_command(args):
     return game_run_command
 
 
+def play_game(command):
+    subprocess.check_output(command, shell=True)
+    print(".")
+
+
 def launch_game(args):
     kwargs = map_parameters(list(args))
     map_height = random.sample(MAP_HEIGHTS, 1)[0]
@@ -96,7 +103,7 @@ def launch_game(args):
 
     bot_command = "python3 MyBot.py "
     bot_command += " ".join(
-        ["--{} {}".format(k, v) for k, v in kwargs.items()])
+            ["--{} {}".format(k, v) for k, v in kwargs.items()])
 
     if OPPONENT_COMMAND == "self":
         opp_kwargs = map_parameters(map_parameters(()).values())
@@ -112,8 +119,6 @@ def launch_game(args):
     print(".")
 
 
-
-
 if __name__ == "__main__":
     while True:
         update_id("experiment")
@@ -121,14 +126,13 @@ if __name__ == "__main__":
         args = np.array([v for v in map_parameters([]).values()])
         bounds = [(0, 1) for _ in args]
         try:
-            a = opt.fmin_l_bfgs_b(async_score, args,
-                                  bounds=bounds,
-                                  epsilon=0.01,
-                                  approx_grad=True,
-                                  maxiter=50)
+            a = opt.minimize(async_score, args,
+                             method='TNC',
+                             jac='2-point',
+                             bounds=bounds)
             update_parameter_mapping()
         except InterruptedError:
             update_parameter_mapping()
         finally:
-            # clean_repository()
-            pass
+            clean_repository()
+            # pass

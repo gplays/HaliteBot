@@ -2,13 +2,9 @@ import logging
 from time import time
 
 import numpy as np
-from numpy import linalg as la
-from scipy.optimize import (NonlinearConstraint, minimize, Bounds)
-from scipy.sparse import csr_matrix
-
+from scipy.optimize import minimize
 from hlt.constr_RVO import get_cone_vel_const
 from hlt.objective_function import objective_function
-
 
 
 def navigate_optimize(game_map, mobile_ships, max_speed):
@@ -33,20 +29,22 @@ def navigate_optimize(game_map, mobile_ships, max_speed):
         optim_set = gridSet.get_neighbours(ref_ship, dist=0)
         free_optim_set = [ref_ship] + [ship for ship in optim_set
                                        if ship in mobile_ships]
-        collision_set = gridSet.get_neighbours(ref_ship, dist=1)
-        collision_set = [entity for entity in collision_set
-                         if entity not in free_optim_set
-                         and entity not in foes]
+        neighbourhood = gridSet.get_neighbours(ref_ship, dist=1)
+        neighbourhood = [entity for entity in neighbourhood
+                         if entity not in free_optim_set]
+
+        collision_set = [entity for entity in neighbourhood
+                         if entity not in foes]
         nearest_planet = game_map.get_nearest_planet(ref_ship)
         if nearest_planet not in collision_set:
             collision_set.append(nearest_planet)
         centroids = gridSet.get_centroids(ref_ship)
 
         all_entities_collision = free_optim_set + collision_set
-        all_entities = all_entities_collision + centroids
+        all_entities = free_optim_set + neighbourhood + centroids
         n = len(free_optim_set)
-        m1 = n + len(collision_set)
-        m2 = m1 + len(centroids)
+        m1 = len(all_entities_collision)
+        m2 = len(all_entities)
 
         const, bounds = get_cone_vel_const(n, m1, all_entities_collision,
                                            max_speed, borders, obj=True)
@@ -73,4 +71,3 @@ def navigate_optimize(game_map, mobile_ships, max_speed):
                 mobile_ships.remove(ship)
 
     return commands
-

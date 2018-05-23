@@ -67,7 +67,7 @@ class Entity:
         :rtype: float
         """
         return math.degrees(
-            math.atan2(target.y - self.y, target.x - self.x)) % 360
+                math.atan2(target.y - self.y, target.x - self.x)) % 360
 
     def calculate_angle_between_rad(self, target):
         return math.atan2(target.y - self.y, target.x - self.x)
@@ -114,6 +114,7 @@ class Entity:
 
     def __str__(self):
         return "Entity {} (id: {}) at position: (x = {}, y = {}), with radius " \
+               "" \
                "" \
                "" \
                "" \
@@ -457,6 +458,7 @@ class Ship(Entity):
         angle = int(math.degrees(math.atan2(self.target.y,
                                             self.target.x))) % 360
         magnitude = round((self.calculate_distance_between(self.target)))
+        magnitude = min(magnitude, 7)
         return self.thrust(magnitude, angle)
 
     def thrust_x_y(self, x, y):
@@ -517,9 +519,9 @@ class Ship(Entity):
             else Entity
         if avoid_obstacles and game_map.obstacles_between(self, target, ignore):
             new_target_dx = math.cos(
-                math.radians(angle + angular_step)) * distance
+                    math.radians(angle + angular_step)) * distance
             new_target_dy = math.sin(
-                math.radians(angle + angular_step)) * distance
+                    math.radians(angle + angular_step)) * distance
             new_target = Position(self.x + new_target_dx,
                                   self.y + new_target_dy)
             return self.navigate(new_target, game_map, speed, True,
@@ -676,7 +678,7 @@ class Centroid(Entity):
     def __init__(self, x, y, factors, kernels):
         self.x = x
         self.y = y
-        self.vel = Position(0,0)
+        self.vel = Position(0, 0)
         self._factors = factors
         self._kernels = kernels
 

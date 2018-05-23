@@ -25,7 +25,7 @@ def extract_perf_from_stats(replay_data):
     kpi = {
         "winner": stats["0"]["rank"] == 1,
         "time": response_time,
-        "time_efficiency": math.exp(- response_time / 100),
+        "time_efficiency": math.exp(- response_time / 1000),
         "ratio_prod": (stats["0"]["total_ship_count"] /
                        (1 + stats["0"]["total_ship_count"] +
                         stats["1"]["total_ship_count"])),
