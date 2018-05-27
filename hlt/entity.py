@@ -470,6 +470,7 @@ class Ship(Entity):
         self.vel = Position(x, y)
         angle = int(math.degrees(math.atan2(y, x))) % 360
         magnitude = round(math.sqrt(x ** 2 + y ** 2))
+        magnitude = min(magnitude, 7)
         return self.thrust(magnitude, angle)
 
     def navigate(self, target, game_map, speed, avoid_obstacles=True,
