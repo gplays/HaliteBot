@@ -2,8 +2,11 @@ import json
 import os
 import os.path as path
 
+from utils.param_handling import map_parameters
+
 STORE_PATH = ".data"
-PREV_LEVEL = {"session": "experiment",
+PREV_LEVEL = {"gen": "session",
+              "session": "experiment",
               "experiment": STORE_PATH,
               STORE_PATH: None}
 
@@ -37,7 +40,8 @@ def update_win_rate(win_loss):
         json.dump(win_dict, f)
 
     if n_games > 12 and win_dict["ratio"] > 0.65:
-        raise InterruptedError
+        pass
+        # raise InterruptedError
 
 
 def write_perfs(my_path, score, log_perfs, params):
@@ -48,6 +52,23 @@ def write_perfs(my_path, score, log_perfs, params):
 
     with open(path.join(my_path, "params-{:.4}.json".format(score)), "w") as f:
         json.dump(params, f)
+
+
+def write_tournament_perfs(my_path, scores, log_perfs, params):
+    with open(path.join(my_path, "stats.json"), "w") as f:
+        json.dump(log_perfs, f)
+    for pool in scores:
+        pool_path = path.join(my_path, "pool_{}".format(pool))
+
+        for p, s in scores[pool].items():
+            file_name = "params-{:.4}-{}.json".format(s, p)
+            log_path = path.join(pool_path, file_name)
+            with open(log_path, "w") as f:
+                json.dump(map_parameters(params[int(p)]), f)
+
+        log_path = path.join(pool_path, "stats.json")
+        with open(log_path, "w") as f:
+            json.dump(log_perfs[pool], f)
 
 
 def is_best_score_yet(score, best_path):
