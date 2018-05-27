@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def simple_objective_function(n, m, all_entities):
     """
 
@@ -33,7 +34,7 @@ def simple_objective_function(n, m, all_entities):
     return fun_grad_simple, hess
 
 
-def objective_function(n, m, all_entities):
+def objective_function(n, m, all_entities, target_weight):
     """
 
     :param n: Number of moving ships
@@ -54,7 +55,7 @@ def objective_function(n, m, all_entities):
 
     grad_target = all_pos[:n] - targets
     norm = np.sum(grad_target ** 2, axis=1).reshape((n, 1))
-    grad_target = grad_target / norm
+    grad_target = target_weight * grad_target / norm
     grad_target = grad_target.reshape((2 * n))
 
     fun_grad = sum_gaussians(n, m, all_pos, factors, kernel_mult, grad_target)
@@ -88,7 +89,7 @@ def hess_gaussian(n, m, all_pos, factors, kernels):
         next_pos = all_pos + vel
         diff_pos = (np.broadcast_to(next_pos[0:n].reshape(n, 1, 2), (n, m, 2)) -
                     np.broadcast_to(next_pos, (n, m, 2)))
-        dist = np.sum(diff_pos**2, axis=2)
+        dist = np.sum(diff_pos ** 2, axis=2)
         my_hess = np.zeros((2 * n, 2 * n))
         for i in range(2):
             fun_mat = factors[:, i] * np.exp(-dist * kernels[:, i])
@@ -141,7 +142,7 @@ def sum_gaussians(n, m, all_pos, factors, kernels, grad_target):
         next_pos = all_pos + vel
         diff_pos = (np.broadcast_to(next_pos[0:n].reshape(n, 1, 2), (n, m, 2)) -
                     np.broadcast_to(next_pos, (n, m, 2)))
-        dist = np.sum(diff_pos**2, axis=2)
+        dist = np.sum(diff_pos ** 2, axis=2)
         fun = 0
         grad = np.zeros(2 * n)
         for i in range(2):

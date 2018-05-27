@@ -46,7 +46,7 @@ def run_game(game, kwargs):
         mobile_ships = game_map.my_undocked_ships
         if mobile_ships:
             # max_speed = kwargs["thrust_ratio"] * MAX_SPEED
-            args = [game_map, mobile_ships, MAX_SPEED]
+            args = [game_map, mobile_ships, MAX_SPEED,kwargs["target_weight"]]
             # dump_pre_navigation(*args)
             commands = navigate_optimize(*args)
             command_queue.extend(commands)
@@ -67,12 +67,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     for key, value in default.items():
         parser.add_argument("--" + key, type=float, default=value)
-
+    parser.add_argument("--name", type=str, default="Optim")
 
     def exception_handler(exception_type, exception, tb):
         logging.error(traceback.format_exception(exception_type, exception, tb))
 
 
     sys.excepthook = exception_handler
-
-    run_game(hlt.Game("Optim"), vars(parser.parse_args()))
+    args = vars(parser.parse_args())
+    run_game(hlt.Game(args["name"]), args)

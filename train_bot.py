@@ -42,6 +42,10 @@ def async_score(args, num_games=CORES):
     :return:
     :rtype:
     """
+    if max(args) > 1 or min(args) < 0:
+        print("error!!!")
+        return 0
+    print('no error')
     start = time()
     session_id = update_id("session")
 
@@ -63,7 +67,7 @@ def async_score(args, num_games=CORES):
     # clean_repository()
 
     # function often try to minimize score ^^
-    return -score
+    return score
 
 
 def get_play_command(args):
@@ -93,7 +97,6 @@ def get_play_command(args):
 
 def play_game(command):
     subprocess.check_output(command, shell=True)
-    print(".")
 
 
 def launch_game(args):
@@ -127,9 +130,12 @@ if __name__ == "__main__":
         bounds = [(0, 1) for _ in args]
         try:
             a = opt.minimize(async_score, args,
-                             method='TNC',
+                             method='L-BFGS-B',
                              jac='2-point',
-                             bounds=bounds)
+                             bounds=bounds,
+                             options={"eps": 0.05,
+                                      "maxls": 5,
+                                      "maxfun": 50})
             update_parameter_mapping()
         except InterruptedError:
             update_parameter_mapping()

@@ -7,7 +7,7 @@ from hlt.constr_RVO import get_cone_vel_const
 from hlt.objective_function import objective_function
 
 
-def navigate_optimize(game_map, mobile_ships, max_speed):
+def navigate_optimize(game_map, mobile_ships, max_speed,target_weight):
     """
 
     :param game_map:
@@ -48,7 +48,7 @@ def navigate_optimize(game_map, mobile_ships, max_speed):
 
         const, bounds = get_cone_vel_const(n, m1, all_entities_collision,
                                            max_speed, borders, obj=True)
-        fun_grad, hess = objective_function(n, m2, all_entities)
+        fun_grad, hess = objective_function(n, m2, all_entities,target_weight)
         x0 = np.zeros(2 * n)
 
         res = minimize(fun_grad, x0, method='trust-constr',
