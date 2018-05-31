@@ -1,6 +1,7 @@
 import json
 import os
 import os.path as path
+import shutil
 
 from utils.param_handling import map_parameters
 
@@ -54,17 +55,16 @@ def write_perfs(my_path, score, log_perfs, params):
         json.dump(params, f)
 
 
-def write_tournament_perfs(my_path, scores, log_perfs, params):
-    with open(path.join(my_path, "stats.json"), "w") as f:
-        json.dump(log_perfs, f)
-    for pool in scores:
-        pool_path = path.join(my_path, "pool_{}".format(pool))
+def write_tournament_perfs(pool_path_prefix, scores, log_perfs, params):
+    for pool, pool_scores in enumerate(scores):
+        pool_path = pool_path_prefix + str(pool)
 
-        for p, s in scores[pool].items():
-            file_name = "params-{:.4}-{}.json".format(s, p)
+        for p, s in pool_scores.items():
+            file_name = "params-{:.4}-{}.json".format(float(s), p)
             log_path = path.join(pool_path, file_name)
             with open(log_path, "w") as f:
-                json.dump(map_parameters(params[int(p)]), f)
+                if int(p)<len(params):
+                    json.dump(map_parameters(params[int(p)]), f)
 
         log_path = path.join(pool_path, "stats.json")
         with open(log_path, "w") as f:
@@ -120,7 +120,20 @@ def update_id(level):
     new_dir = path.join(root, level + my_id)
     os.mkdir(new_dir)
 
+    if level == "experiment":
+        copy_game_files(new_dir)
+
     return my_id
+
+
+def copy_game_files(out_path):
+    hlt_files = [f for f in os.listdir("./hlt") if f.endswith(".py")]
+    os.mkdir(path.join(out_path, "Bot"))
+    hlt_path = path.join(out_path, "Bot", "hlt")
+    os.mkdir(hlt_path)
+    for f in hlt_files:
+        shutil.copy("./hlt/" + f, hlt_path)
+    shutil.copy("./MyBot.py", path.join(out_path, "Bot", "MyBot.py"))
 
 
 def update_parameter_mapping():

@@ -25,9 +25,9 @@ def extract_perf_from_stats(replay_data):
     kpi = {
         "winner": stats["0"]["rank"] == 1,
         "time": response_time,
-        "time_efficiency": (response_time /
-                            (response_time +
-                             stats["0"]["average_frame_response_time"])),
+        "time_efficiency": ((0.05 + response_time) /
+                            (0.1 + response_time +
+                             stats["1"]["average_frame_response_time"])),
         "ratio_prod": ((0.05 + stats["0"]["total_ship_count"]) /
                        (.1 + stats["0"]["total_ship_count"] +
                         stats["1"]["total_ship_count"])),
@@ -88,7 +88,7 @@ def get_score_tournament(pool_path, n_pool, pool_list, pool_size):
     log_perfs = [{} for _ in range(n_pool)]
     scores = [{} for _ in range(n_pool)]
     for player, pool in enumerate(pool_list):
-        scores[pool][player] = []
+        scores[pool][player] = 0
 
     my_pool_path = pool_path + "0"
     for file in onlyfiles:
@@ -102,8 +102,8 @@ def get_score_tournament(pool_path, n_pool, pool_list, pool_size):
             log_perfs[pool][match_name] = perfs
             score = sum([perfs[kpi] * SCORE_WEIGHTS[kpi]
                          for kpi in SCORE_WEIGHTS])
-            scores[pool][players[0]].append(score / (pool_size - 1))
-            scores[pool][players[1]].append((1 - score) / (pool_size - 1))
+            scores[pool][int(players[0])] += score / (pool_size - 1)
+            scores[pool][int(players[1])] += (1 - score) / (pool_size - 1)
             my_pool_path = pool_path + str(pool)
         except zstd.Error:
             pass

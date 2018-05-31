@@ -1,7 +1,9 @@
+from math import sqrt
+
 import numpy as np
 from hlt.entity import Ship, Position
 from . import collision, entity
-from .constants import ALLY, FOE, ALLY_PLANET, FOE_PLANET, DIST_POWER
+from .constants import DIST_POWER
 
 
 class Map:
@@ -25,11 +27,10 @@ class Map:
         self._players = {}
         self._planets = {}
         self.gridSet = None
+        self.params = None
 
-
-    def set_gridSet(self,gridSet):
+    def set_gridSet(self, gridSet):
         self.gridSet = gridSet
-
 
     def get_me(self):
         """
@@ -86,7 +87,7 @@ class Map:
         :return:
         :rtype:
         """
-
+        self.params = params
         for e in self._all_ships() + self.all_planets():
             e.augment(self.get_me(), params)
 
@@ -168,24 +169,6 @@ class Map:
                 all_ships.extend(player.all_ships())
         return all_ships
 
-    @property
-    def all_entities_by_type(self):
-        """
-        Helper function to extract all entities at once
-
-        :return: List of entities
-        :rtype: List[(int, Entity)]
-        """
-        me = self.get_me()
-        all_entities = {0: [], 1: [], 2: [], 3: [], 4: [], 5: []}
-        for ship in self._all_ships():
-            entity_type = ALLY if ship.owner == me else FOE
-            all_entities[entity_type].append(ship)
-        for planet in self.all_planets():
-            entity_type = FOE_PLANET if planet.owner != me else ALLY_PLANET
-            all_entities[entity_type].append(planet)
-        return all_entities
-
     def compute_planet_threat_attractivity(self):
         """
         Compute a threat level for the vicinity of a planet
@@ -200,15 +183,22 @@ class Map:
             ships = [int(entity.isMine) for entity in entities if
                      entity.isMobile]
             tot_ships = len(ships)
-            threat_level = 0
-            attractivity_level = -1
             foe_presence = tot_ships - sum(ships)
-            if tot_ships > 0:
-                attractivity_level -= foe_presence + tot_ships
-                threat_level = foe_presence / tot_ships
+            n_docked = len(planet.all_docked_ships)
+            f = self.params
+            if planet.owner is None:
+                attractivity = f["explore"]*planet.free_spots * (
+                        1 + 1 / planet.num_docking_spots) - tot_ships
+            elif planet.owner == self.get_me():
+                attractivity = f["defend"]*(foe_presence - sum(ships)) * sqrt(
+                        n_docked)
+            else:
+                attractivity = f["raid"]*n_docked
+
+            threat_level = foe_presence / max(tot_ships - 1, 1)
 
             planet.set_threat(threat_level)
-            planet.set_attractivity(attractivity_level)
+            planet.set_attractivity(attractivity)
 
     def assign_targets(self):
         """

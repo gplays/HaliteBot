@@ -2,22 +2,22 @@
   "k_collision": [
     7.233,
     0.5,
-    100
+    10
   ],
   "k_foe_opportunity": [
     71.88,
     10,
-    100
+    200
   ],
-  "k_foe_threat": [
-    4.504,
-    1,
-    100
+  "k_foe_vuln_opportunity": [
+    71.88,
+    10,
+    200
   ],
   "k_planet_opportunity": [
     94.78,
     30,
-    150
+    200
   ],
   "k_planet_threat": [
     4.504,
@@ -27,41 +27,56 @@
   "k_swarm": [
     89.08,
     10,
-    100
+    200
   ],
   "w_collision": [
     2.663,
     0,
-    100
+    20
   ],
   "w_foe_opportunity": [
     -0.97,
-    -100,
+    -200,
     0
   ],
-  "w_foe_threat": [
-    0.107,
-    0,
-    100
+  "w_foe_vuln_opportunity": [
+    -10,
+    -200,
+    0
   ],
   "w_planet_opportunity": [
     -3.53,
-    -100,
+    -200,
     0
   ],
   "w_planet_threat": [
     2.663,
     0,
-    100
+    200
   ],
   "w_swarm": [
     -0.97,
-    -100,
+    -200,
     0
   ],
   "target_weight": [
     1,
     0.1,
-    100
+    200
+  ],
+  "explore": [
+    1,
+    0.1,
+    2
+  ],
+  "defend": [
+    1,
+    0.1,
+    2
+  ],
+  "raid": [
+    1,
+    0.1,
+    2
   ]
 }

@@ -3,7 +3,7 @@ import math
 from enum import Enum
 
 from . import constants
-from .constants import ALLY, FOE, ALLY_PLANET, FOE_PLANET
+
 
 
 class Entity:
@@ -127,6 +127,7 @@ class Entity:
                "" \
                "" \
                "" \
+               "" \
                "= {}".format(self.__class__.__name__, self.id, self.x, self.y,
                              self.radius)
 
@@ -173,35 +174,35 @@ class Planet(Entity):
         self.params = {}
 
     @property
-    def type(self):
-        if self.owner is None or self.owner == self.me:
-            return ALLY_PLANET
-        else:
-            return FOE_PLANET
 
     @property
     def kernels(self):
-        if self.type == ALLY_PLANET:
-            free_spots = self.num_docking_spots - len(self.all_docked_ships)
-            ratio = len(self.all_docked_ships) / self.num_docking_spots
-
-            k = math.sqrt(1 + free_spots) * self.params["k_planet_opportunity"]
-            k2 = math.sqrt(1 + ratio) * self.params["k_planet_threat"]
-        else:
-            k = math.sqrt(1 + len(self.all_docked_ships)) * \
-                self.params["k_planet_opportunity"]
-            k2 = self.params["k_planet_threat"]
+        k = self.params["k_planet_opportunity"]
+        k2 = self.params["k_planet_threat"]
         return k, k2
 
     @property
     def factors(self):
-        f = self.params["w_planet_opportunity"]
-        f2 = self.params["w_planet_threat"]
+
+        if self.owner == self.me:
+            free_spots = self.num_docking_spots - len(self.all_docked_ships)
+            ratio = len(self.all_docked_ships) / self.num_docking_spots
+
+            f = (1 + free_spots) * self.params["w_planet_opportunity"]
+            f2 = (1 + ratio) * self.params["w_planet_threat"]
+        else:
+            f = math.sqrt(1 + len(self.all_docked_ships)) * \
+                self.params["w_planet_opportunity"]
+            f2 = self.params["w_planet_threat"]
         return f, f2
 
     @property
     def isPlanet(self):
         return True
+
+    @property
+    def free_spots(self):
+        return self.num_docking_spots-len(self._docked_ships)
 
     def get_docked_ship(self, ship_id):
         """
@@ -358,12 +359,6 @@ class Ship(Entity):
         self.me = -1
         self.params = {}
 
-    @property
-    def type(self):
-        if self.owner == self.me:
-            return ALLY
-        else:
-            return FOE
 
     @property
     def kernels(self):
@@ -371,8 +366,11 @@ class Ship(Entity):
             k = self.params["k_swarm"]
             k2 = self.params["k_collision"]
         else:
-            k = self.params["k_foe_opportunity"]
-            k2 = self.params["k_foe_threat"]
+            if self.isMobile:
+                k = self.params["k_foe_opportunity"]
+            else:
+                k = self.params["k_foe_vuln_opportunity"]
+            k2 = 1
         return k, k2
 
     @property
@@ -381,8 +379,11 @@ class Ship(Entity):
             f = self.params["w_swarm"]
             f2 = self.params["w_collision"]
         else:
-            f = self.params["w_foe_opportunity"]
-            f2 = self.params["w_foe_threat"]
+            if self.isMobile:
+                f = self.params["w_foe_opportunity"]
+            else:
+                f = self.params["w_foe_vuln_opportunity"]
+            f2 = 0
         return f, f2
 
     @property
@@ -457,7 +458,7 @@ class Ship(Entity):
         """
         angle = int(math.degrees(math.atan2(self.target.y,
                                             self.target.x))) % 360
-        magnitude = round((self.calculate_distance_between(self.target)))
+        magnitude = int((self.calculate_distance_between(self.target)))
         magnitude = min(magnitude, 7)
         return self.thrust(magnitude, angle)
 
@@ -469,7 +470,7 @@ class Ship(Entity):
         """
         self.vel = Position(x, y)
         angle = int(math.degrees(math.atan2(y, x))) % 360
-        magnitude = round(math.sqrt(x ** 2 + y ** 2))
+        magnitude = int(math.sqrt(x ** 2 + y ** 2))
         magnitude = min(magnitude, 7)
         return self.thrust(magnitude, angle)
 

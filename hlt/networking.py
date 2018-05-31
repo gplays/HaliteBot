@@ -10,6 +10,7 @@ class Game:
     :ivar map: Current map representation
     :ivar initial_map: The initial version of the map before game starts
     """
+
     @staticmethod
     def _send_string(s):
         """
@@ -46,7 +47,8 @@ class Game:
         """
         Issue the given list of commands.
 
-        :param list[str] command_queue: List of commands to send the Halite engine
+        :param list[str] command_queue: List of commands to send the Halite
+        engine
         :return: nothing
         """
         for command in command_queue:
@@ -64,7 +66,8 @@ class Game:
         :return: nothing
         """
         log_file = "{}_{}.log".format(tag, name)
-        logging.basicConfig(filename=log_file, level=logging.DEBUG, filemode='w')
+        logging.basicConfig(filename=log_file, level=logging.DEBUG,
+                            filemode='w')
         logging.info("Initialized bot {}".format(name))
 
     def __init__(self, name):

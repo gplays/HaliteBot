@@ -311,12 +311,12 @@ def intersect(pA, vA, RVO_BA_all):
                 theta_left = atan2(left[1], left[0])
                 if in_between(theta_right, theta_dif, theta_left):
                     small_theta = abs(
-                        theta_dif - 0.5 * (theta_left + theta_right))
+                            theta_dif - 0.5 * (theta_left + theta_right))
                     if abs(dist * sin(small_theta)) >= rad:
                         rad = abs(dist * sin(small_theta))
                     big_theta = asin(abs(dist * sin(small_theta)) / rad)
                     dist_tg = abs(dist * cos(small_theta)) - abs(
-                        rad * cos(big_theta))
+                            rad * cos(big_theta))
                     if dist_tg < 0:
                         dist_tg = 0
                     tc_v = dist_tg / distance(dif, [0, 0])

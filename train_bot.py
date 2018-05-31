@@ -96,7 +96,7 @@ def get_play_command(args):
 
 
 def play_game(command):
-    subprocess.check_output(command, shell=True)
+    subprocess.run(command, shell=True)
 
 
 def launch_game(args):

@@ -6,7 +6,6 @@ from scipy.optimize import NonlinearConstraint, Bounds
 from .constants import FUDGE, RAD_FUDGE
 
 
-
 def get_cone_vel_const(n, m, all_entities, max_speed, borders, **kwargs):
     preprocess = constraints_pre_cone(n, m, all_entities, max_speed)
     all_pos, diff_pos, sum_rad, u1, u2, u3, d3, speed_sq, collision_idx, \
@@ -156,6 +155,7 @@ def hess_RVO_cone(n):
         return hessian
 
     return hess
+
 
 def norm_triangle(vect):
     n, m, _ = vect.shape

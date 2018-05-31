@@ -1,4 +1,7 @@
+import argparse
 import heapq
+import json
+from subprocess import PIPE, run
 from itertools import combinations
 import random
 from multiprocessing.pool import Pool
@@ -16,29 +19,31 @@ NGEN = 40
 MU = 6
 CXPB = 0.5
 MUTPB = 0.5
-N_PARAMS = 13
+N_PARAMS = 16
 T1_POOL = 3
 T1_WIN = 2
 T2_POOL = 6
 T2_WIN = 3
+BOT = ["MyBot.py"]
+BOSSES = ["holypegasus", "DaanPosthuma"]
 
 
 def gen_opt():
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMax)
     toolbox = base.Toolbox()
-    toolbox.register("attr_float", random.random)
-    toolbox.register("individual", tools.initRepeat, creator.Individual,
-                     toolbox.attr_float, n=N_PARAMS)
-    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+    toolbox.register("population_guess", initPopulation, list,
+                     creator.Individual)
 
-    toolbox.register("evaluate", async_score)
+    # toolbox.register("evaluate", async_score)
     toolbox.register("mate", tools.cxTwoPoint)
-    toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=0.1, indpb=0.1)
+    toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=0.05, indpb=0.1)
     toolbox.decorate("mate", checkBounds(0, 1))
     toolbox.decorate("mutate", checkBounds(0, 1))
-    toolbox.register("select", tools.selTournament, tournsize=3)
-    population = toolbox.population(n=MU)
+    # toolbox.register("select", tools.selTournament, tournsize=3)
+
+    population = toolbox.population_guess()
+
     update_id("experiment")
     for gen in range(NGEN):
         update_id("session")
@@ -51,10 +56,21 @@ def gen_opt():
         # 1st Turn
         best = tournament(population, T1_POOL, T1_WIN)
         # 2nd Turn
-        population = tournament(best, T2_POOL, T2_WIN)
+        population = tournament(best, T2_POOL, T2_WIN,boss=True)
 
 
-def tournament(pop, size, n_best):
+def initPopulation(pcls, ind_init):
+    my_path = "./.data/params"
+    param_files = [f for f in os.listdir(my_path) if f.startswith("params")]
+    param_files = sorted(param_files, reverse=True)[:MU]
+    population = []
+    for file in param_files:
+        with open(path.join(my_path, file)) as f:
+            population.append(list(map_parameters(json.load(f)).values()))
+    return pcls(ind_init(c) for c in population)
+
+
+def tournament(pop, size, n_best, boss=False):
     # Init path info
     my_path = path.join(data_path("session"), "tournament_{}".format(size))
     os.mkdir(my_path)
@@ -67,55 +83,78 @@ def tournament(pop, size, n_best):
 
     # Init Variables
     commands = []
-    pool_list = []
+    pool_list = [-1] * l_pop
+    if boss:
+        pool_list = [-1] * (l_pop + n_pool)
 
     print("New Tournament: {} pools of {}".format(n_pool, size))
 
     for k in range(0, l_pop, size):
         pool_id = int(k / size)
 
-        pool_list.append([idx[k + i] for i in range(size)])
+        for i in range(size):
+            pool_list[idx[k + i]] = pool_id
         os.mkdir(pool_path + str(pool_id))
         for i, j in combinations(list(range(size)), r=2):
             x, y = k + i, k + j
-            commands.append(get_play_command_2_player(pop[idx[x]], pop[idx[y]],
-                                                      idx[x], idx[y]))
+            commands.append(play_command(command_player(pop[idx[x]], idx[x]),
+                                         command_player(pop[idx[y]], idx[y])))
+        if boss:
+            id_boss = l_pop + pool_id
+            pool_list[id_boss] = pool_id
+            for i in range(size):
+                x = k + i
+                boss = BOSSES[pool_id % len(BOSSES)]
+                commands.append(play_command(command_boss(boss, id_boss),
+                                             command_player(pop[idx[x]],
+                                                            idx[x])))
     # Run all games
     pool = Pool()
-    pool.map(play_game, commands)
+    pool.map(play_game2, commands)
     pool.close()
     pool.join()
 
     # Extrat information from games played
-    scores, log_perf = get_score_tournament(pool_path, n_pool, pool_list, size)
+
+    scores, log_perf = get_score_tournament(pool_path, n_pool, pool_list,
+                                            size+int(boss))
     write_tournament_perfs(pool_path, scores, log_perf, pop)
 
-    # Extract winners
-    # List comprehension flatten list of dict and for each dict sort keys
-    # according to value
-    winners = [pop[tuple[0]] for scores_pool in scores
-               for tuple in sorted(scores_pool.items(),
-                                   key=lambda z: z[1],
-                                   reverse=True)[:n_best]]
+    winners = []
+    # Extract winners for each pool
+    for scores_pool in scores:
+        sorted_score = sorted(scores_pool.items(),
+                              key=lambda z: z[1], reverse=True)
+        # Bosses names are longer than 3 characters, all others are just numbers
+        # We assume we will have less than 1k individuals in the tournament
+        winners.extend([pop[id] for id, score in sorted_score
+                        if id < l_pop][:n_best])
 
     return winners
 
 
-def get_play_command_2_player(args1, args2, idx_player1, idx_player2):
-    kwargs1 = map_parameters(args1)
-    kwargs2 = map_parameters(args2)
+def play_game2(command):
+    run(command, bufsize=0, stdin=PIPE, stdout=PIPE, shell=True)
+
+
+def command_player(args, idx_player):
+    kwargs = map_parameters(args)
+    bot_command = "python3 " + BOT[0] + " "
+    bot_command += " ".join(["--{} {}".format(k, v)
+                             for k, v in kwargs.items()])
+    bot_command += " --name {}".format(idx_player)
+
+    return bot_command
+
+
+def command_boss(boss, id_boss):
+    boss_path = path.join("bosses", boss, "MyBot.py")
+    return " ".join(["python3", boss_path, "--name", str(id_boss)])
+
+
+def play_command(bot_command, opp_command):
     map_height = random.sample(MAP_HEIGHTS, 1)[0]
     map_width = int(3 * map_height / 2)
-
-    bot_command = "python3 MyBot.py "
-    bot_command += " ".join(["--{} {}".format(k, v)
-                             for k, v in kwargs1.items()])
-    bot_command += " --name {}".format(idx_player1)
-
-    opp_command = "python3 MyBot.py "
-    opp_command += " ".join(["--{} {}".format(k, v)
-                             for k, v in kwargs2.items()])
-    bot_command += " --name {}".format(idx_player2)
 
     binary = "./halite"
     game_run_command = '\"{}\" -d "{} {}" -t'.format(binary, map_width,
@@ -144,5 +183,11 @@ def checkBounds(min, max):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--fast", action="store_true")
+    args = parser.parse_args()
+    if args.fast:
+        BOT[0] = "fastBot.py"
+
     print("Starting Genetic Optimization")
     gen_opt()

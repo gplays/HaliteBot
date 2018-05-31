@@ -49,14 +49,14 @@ def run_game(game, **kwargs):
                     simple_grad = ship.compute_grad(e_type, entity, **kwargs)
                     logging.info("grad: {}".format(simple_grad))
                     logging.info("dist: {}".format(
-                        ship.calculate_distance_between(entity)))
+                            ship.calculate_distance_between(entity)))
                     grad_x += simple_grad[0]
                     grad_y += simple_grad[1]
 
             if conflict_check:
                 list_moves.append((ship, (grad_x, grad_y)))
             else:
-                ship.set_target_from_grad(grad_x,grad_y,SPEED)
+                ship.set_target_from_grad(grad_x, grad_y, SPEED)
 
                 navigate_command = ship.navigate(ship.target,
                                                  game_map,
@@ -73,7 +73,6 @@ def run_game(game, **kwargs):
         # Send our set of commands to the Halite engine for this turn
         game.send_command_queue(command_queue)
         # TURN END
-
 
         # GAME END
 

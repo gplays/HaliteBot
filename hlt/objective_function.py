@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 
 
@@ -50,7 +52,6 @@ def objective_function(n, m, all_entities, target_weight):
     factors = np.array([entity.factors for entity in all_entities])
     kernel_widths = np.array([entity.kernels for entity in all_entities])
     kernel_mult = 1 / kernel_widths ** 2
-
     targets = np.array([[e.target.x, e.target.y] for e in all_entities[:n]])
 
     grad_target = all_pos[:n] - targets
