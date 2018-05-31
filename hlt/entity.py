@@ -48,6 +48,10 @@ class Entity:
     @property
     def isMobile(self): return False
 
+    @property
+    def isMine(self):
+        return self.owner == self.me
+
     def calculate_distance_between(self, target):
         """
         Calculates the distance between this object and the target.
@@ -173,7 +177,6 @@ class Planet(Entity):
         self.me = -1
         self.params = {}
 
-    @property
 
     @property
     def kernels(self):
@@ -184,7 +187,7 @@ class Planet(Entity):
     @property
     def factors(self):
 
-        if self.owner == self.me:
+        if self.isMine:
             free_spots = self.num_docking_spots - len(self.all_docked_ships)
             ratio = len(self.all_docked_ships) / self.num_docking_spots
 
@@ -362,7 +365,7 @@ class Ship(Entity):
 
     @property
     def kernels(self):
-        if self.type == ALLY:
+        if self.isMine:
             k = self.params["k_swarm"]
             k2 = self.params["k_collision"]
         else:
@@ -375,7 +378,7 @@ class Ship(Entity):
 
     @property
     def factors(self):
-        if self.type == ALLY:
+        if self.isMine:
             f = self.params["w_swarm"]
             f2 = self.params["w_collision"]
         else:
@@ -394,9 +397,6 @@ class Ship(Entity):
     def isMobile(self):
         return self.docking_status == Ship.DockingStatus.UNDOCKED
 
-    @property
-    def isMine(self):
-        return self.owner == self.me
 
     def thrust(self, magnitude, angle):
         """
